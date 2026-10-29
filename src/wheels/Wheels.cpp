@@ -1,6 +1,7 @@
 #include "wheels/Wheels.h"
 #include "wheels/WheelStorage.h"
 #include "core/AtomicFile.h"
+#include "core/TextUtil.h"
 #include "game/SessionContext.h"
 #include "wheels/KnownEntry.h"
 #include "wheels/EmptySetup.h"
@@ -932,13 +933,12 @@ namespace wheels
 			static bool        looked = false;
 			if (looked) return found;
 			looked = true;
-			const auto lower = [](std::string a_s) { for (auto& c : a_s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c))); return a_s; };
 			for (UE::UStruct* st = a_pc ? static_cast<UE::UStruct*>(a_pc->GetClass()) : nullptr; st && found.empty(); st = st->superStruct) {
 				auto* f = *reinterpret_cast<UE::UField* const*>(&st->children);
 				for (int n = 0; f && n < 8000; ++n, f = f->next) {
 					if (pe::Utf8(f->GetClass()->GetFName().ToString()) != "Function") continue;
 					const std::string name = pe::Utf8(f->GetFName().ToString());
-					const std::string l = lower(name);
+					const std::string l = textutil::Lower(name);
 					if (l.find("openinventory") != std::string::npos && l.ends_with("_pressed")) {
 						found = name;
 						break;

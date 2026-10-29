@@ -49,8 +49,6 @@ namespace controls
 		std::uint64_t g_ticks = 0;
 		bool          g_wasInMenu = true;
 
-		std::string NameOf(UE::UObject* a_o) { return a_o ? pe::Utf8(a_o->GetFName().ToString()) : std::string("null"); }
-		std::string NameOf(const UE::FName& a_n) { return pe::Utf8(a_n.ToString()); }
 
 		std::string KeyFor(WORD a_mask)
 		{
@@ -105,7 +103,7 @@ namespace controls
 			for (std::int32_t i = 0; arr && arr->data && m.size > 0 && m.action >= 0 && m.key >= 0 && i < arr->num; ++i) {
 				std::uint8_t* e = arr->data + static_cast<std::ptrdiff_t>(i) * m.size;
 				if (*reinterpret_cast<UE::UObject**>(e + m.action) != g_action) continue;
-				const auto name = NameOf(*reinterpret_cast<const UE::FName*>(e + m.key));
+				const auto name = pe::NameOf(*reinterpret_cast<const UE::FName*>(e + m.key));
 				if (name.starts_with("Gamepad_") && std::find(keys.begin(), keys.end(), name) == keys.end()) keys.push_back(name);
 			}
 			return keys;
@@ -144,7 +142,7 @@ namespace controls
 				for (std::int32_t i = 0; i < arr->num; ++i) {
 					const std::uint8_t* e = arr->data + static_cast<std::ptrdiff_t>(i) * m.size;
 					auto* act = *reinterpret_cast<UE::UObject* const*>(e + m.action);
-					if (act && NameOf(act).starts_with("IA_Game_QuickKeys_Keyboard_") && std::find(actions.begin(), actions.end(), act) == actions.end()) {
+					if (act && pe::NameOf(act).starts_with("IA_Game_QuickKeys_Keyboard_") && std::find(actions.begin(), actions.end(), act) == actions.end()) {
 						actions.push_back(act);
 					}
 				}
@@ -160,7 +158,7 @@ namespace controls
 				}
 				if (!actions.empty()) {
 					static int s_named = 0;
-					if (s_named++ < 4) logger::info("controls: {} had {} keyboard quick key action(s) - taken off their keys", NameOf(ctx), actions.size());
+					if (s_named++ < 4) logger::info("controls: {} had {} keyboard quick key action(s) - taken off their keys", pe::NameOf(ctx), actions.size());
 				}
 			}
 			return total;
@@ -216,7 +214,7 @@ namespace controls
 				auto* act = *reinterpret_cast<UE::UObject**>(row + oData + oAction);
 				if (act == g_action) return true;   // already there
 				if (!act) continue;
-				const auto name = NameOf(act);
+				const auto name = pe::NameOf(act);
 				if (name.find("QuickKey") != std::string::npos || name.find("Quickkey") != std::string::npos) {
 					at = i + 1;   // after the last quick keys row
 					model = i;
@@ -253,7 +251,7 @@ namespace controls
 			arr->num += 1;
 			arr->max = arr->num;
 			logger::info("controls: \"Ammo Wheel\" row added to the Controller Controls page at row {} of {} (modelled on {})", at + 1, arr->num,
-				NameOf(*reinterpret_cast<UE::UObject* const*>(like + oData + oAction)));
+				pe::NameOf(*reinterpret_cast<UE::UObject* const*>(like + oData + oAction)));
 			return true;
 		}
 
@@ -283,7 +281,7 @@ namespace controls
 			const auto key = KeyFor(static_cast<WORD>(settings::Get().ammoButton));
 			const bool mapped = MapKey(key);
 			g_status.rowAdded = AddRow();
-			logger::info("controls: {} created, mapped in {} to {} ({}), Controls row {}", NameOf(g_action), NameOf(g_imc), key, mapped ? "ok" : "FAILED",
+			logger::info("controls: {} created, mapped in {} to {} ({}), Controls row {}", pe::NameOf(g_action), pe::NameOf(g_imc), key, mapped ? "ok" : "FAILED",
 				g_status.rowAdded ? "added" : "NOT added");
 			RebuildMappings();
 		}

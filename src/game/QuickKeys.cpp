@@ -36,24 +36,6 @@ namespace quickkeys
 		std::atomic<int> g_frame{ 0 };
 		std::atomic<ULONGLONG> g_boostUntil{ 0 };   // the wheel changed visibility: its animations are played faster until then
 
-		std::string Utf8(const UE::FString& a_s)
-		{
-			const wchar_t* d = UE::GetData(a_s);
-			const int      n = UE::GetNum(a_s);
-			if (!d || n <= 0) {
-				return {};
-			}
-			const int len = d[n - 1] == L'\0' ? n - 1 : n;
-			const int bytes = WideCharToMultiByte(CP_UTF8, 0, d, len, nullptr, 0, nullptr, nullptr);
-			std::string out(bytes > 0 ? static_cast<std::size_t>(bytes) : 0, '\0');
-			if (bytes > 0) {
-				WideCharToMultiByte(CP_UTF8, 0, d, len, out.data(), bytes, nullptr, nullptr);
-			}
-			return out;
-		}
-
-		std::string NameOf(const UE::FName& a_n) { return Utf8(a_n.ToString()); }
-
 		void SetProblem(const std::string& a_why)
 		{
 			std::scoped_lock l(g_statusLock);
@@ -230,7 +212,7 @@ namespace quickkeys
 				return;
 			}
 			g_widgetClass.store(widgetClass, std::memory_order_release);
-			logger::info("quick keys: widget class found ({})", Utf8(widgetClass->GetFullName()));
+			logger::info("quick keys: widget class found ({})", pe::Utf8(widgetClass->GetFullName()));
 		}
 		auto* vmClass = g_viewModelClass.load(std::memory_order_acquire);
 		if (!vmClass) {

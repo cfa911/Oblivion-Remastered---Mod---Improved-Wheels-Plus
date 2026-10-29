@@ -1,5 +1,7 @@
 #include "overlays/MagicWheel.h"
 
+#include "core/TextUtil.h"
+
 #include "game/Inventory.h"
 #include "game/Menus.h"
 #include "engine/PEHook.h"
@@ -36,7 +38,6 @@ namespace magicwheel
 		std::array<bool, 8> g_spellKey{};
 		ULONGLONG           g_nextEquip = 0;
 
-		std::string NameOf(UE::UObject* a_o) { return a_o ? pe::Utf8(a_o->GetFName().ToString()) : std::string("none"); }
 
 		// the game's wheel picture inside the visible wheel widget: quickKeys_material > Image (the primary session's
 		// reads, 2026-09-30: ...WBP_ModernMenu_QuickKeys.WidgetTree.quickKeys_material.WidgetTree.Image, drawn by a
@@ -50,8 +51,8 @@ namespace magicwheel
 			static bool logged = false;
 			if (!logged) {
 				logged = true;
-				logger::info("magic wheel: the game's wheel picture is {} > {} (drawn by {})", material ? NameOf(material) : "NOT FOUND (quickKeys_material)",
-					img ? NameOf(img) : "NOT FOUND (Image)", NameOf(img ? ui::BrushResource(img) : nullptr));
+				logger::info("magic wheel: the game's wheel picture is {} > {} (drawn by {})", material ? pe::NameOf(material) : "NOT FOUND (quickKeys_material)",
+					img ? pe::NameOf(img) : "NOT FOUND (Image)", pe::NameOf(img ? ui::BrushResource(img) : nullptr));
 			}
 			return img;
 		}
@@ -108,7 +109,7 @@ namespace magicwheel
 			if (mid && parent == g_midParent && ui::BrushResource(img) == mid) return mid;
 			mid = parent ? ui::MakeMaterialInstance(parent) : nullptr;
 			if (!mid) {
-				logger::warn("magic wheel: its material instance could not be made (parent {})", NameOf(parent));
+				logger::warn("magic wheel: its material instance could not be made (parent {})", pe::NameOf(parent));
 				return nullptr;
 			}
 			ui::SetBrushMaterial(img, mid);
@@ -117,7 +118,7 @@ namespace magicwheel
 			g_tex.fill(nullptr);
 			g_op.fill(-1.0f);
 			g_mirrored.clear();
-			logger::info("magic wheel: its material is an instance of {}", NameOf(parent));
+			logger::info("magic wheel: its material is an instance of {}", pe::NameOf(parent));
 			return mid;
 		}
 
@@ -252,7 +253,7 @@ namespace magicwheel
 				g_shown = true;
 				int filled = 0;
 				for (const auto s : spells) filled += s ? 1 : 0;
-				logger::info("magic wheel: shown over {} ({} of 8 slots hold a spell)", NameOf(gameImg), filled);
+				logger::info("magic wheel: shown over {} ({} of 8 slots hold a spell)", pe::NameOf(gameImg), filled);
 			}
 		}
 
@@ -266,8 +267,7 @@ namespace magicwheel
 			static std::unordered_map<UE::UObject*, bool> s_known;
 			if (!a_icon) return false;
 			if (const auto it = s_known.find(a_icon); it != s_known.end()) return it->second;
-			std::string path = pe::Utf8(a_icon->GetFullName());
-			for (auto& c : path) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+			const std::string path = textutil::Lower(pe::Utf8(a_icon->GetFullName()));
 			const bool spell = path.find("/icons/magic/") != std::string::npos;
 			s_known[a_icon] = spell;
 			return spell;
