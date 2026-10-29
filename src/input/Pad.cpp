@@ -353,389 +353,433 @@ const int slot = settings::Get().chooseOnClose ? PointedKey() : -1;
 			g_menuDownFired = false;
 		}
 
-		void Rewrite(XINPUT_GAMEPAD& a_pad)
+		// One controller read as the rules see it: the buttons as read, what went down and up, the time, the menu up, and the
+		// buttons the game will see (out). The steps below are the parts of Rewrite, in its order.
+		struct Read
 		{
-			g_liveStickKey = -1;
-			{   // a wheel's own button (INI [Wheel] uEquipmentWheelButton / uMagicWheelButton / uAmmoWheelButton): that wheel is made the
-				// active one, and the wheel button is held for as long as it is - so one press opens the radial on that wheel
-				static WORD s_prevDirect = 0;
-				const auto&  st = settings::Get();
-				const WORD   wheelBtn = static_cast<WORD>(st.wheelButton ? st.wheelButton : XINPUT_GAMEPAD_DPAD_DOWN);
-				const std::array<std::pair<WORD, wheels::Wheel>, 3> direct{ {
-					{ static_cast<WORD>(st.equipmentWheelButton), wheels::Wheel::kEquipment },
-					{ static_cast<WORD>(st.magicWheelButton), wheels::Wheel::kMagic },
-					{ static_cast<WORD>(st.ammoWheelButton), wheels::Wheel::kAmmo } } };
-				WORD held = 0;
-				const bool inGame = (menus::Active() == menus::Menu::kNone && !menus::AnyOpen()) || quickkeys::RadialOpen();
-				for (const auto& [mask, wheel] : direct) {
-					if (!mask || mask == wheelBtn || !inGame || !(a_pad.wButtons & mask)) continue;
-					held |= mask;
-					if (!(s_prevDirect & mask)) {
-						if (wheels::Active() != wheel) g_stayUsedSlot = -1;
-						wheels::SetActive(wheel);
-					}
-				}
-				s_prevDirect = held;
-				if (held) a_pad.wButtons = static_cast<WORD>((a_pad.wButtons & ~held) | wheelBtn);
-			}
-			const WORD raw = a_pad.wButtons;
-			const WORD pressed = raw & ~g_prevRaw;
-			const WORD released = ~raw & g_prevRaw;
-			const bool ltPressed = a_pad.bLeftTrigger >= kTriggerOn && g_prevLT < kTriggerOn;
-			const bool rtPressed = a_pad.bRightTrigger >= kTriggerOn && g_prevRT < kTriggerOn;
-			g_prevRaw = raw;
-			g_prevLT = a_pad.bLeftTrigger;
-			g_prevRT = a_pad.bRightTrigger;
+			XINPUT_GAMEPAD&   pad;
+			WORD              raw;
+			WORD              pressed;
+			WORD              released;
+			bool              ltPressed;
+			bool              rtPressed;
+			Clock::time_point now;
+			menus::Menu       menu;
+			WORD&             out;
+		};
 
-			const auto now = Clock::now();
-			if (interop::AmfMenuOpen() || interop::TweenMenuOpen()) {
-				// the framework's window (or Tween Menu's menu) has the pad: no wheel rule runs, the read goes on untouched (its gate hides it
-				// from the game); an open ammo wheel closes, a latched wheel lets go
-				WORD untouched = raw;
-				ammo::Rewrite(a_pad, raw, 0, untouched, false, false);
-				a_pad.wButtons = raw;
-				g_latched = false;
-				g_pendingLatch = false;
-				g_suppressDown = false;
-				return;
+		// a wheel's own button (INI [Wheel] uEquipmentWheelButton / uMagicWheelButton / uAmmoWheelButton): that wheel is made the
+		// active one, and the wheel button is held for as long as it is - so one press opens the radial on that wheel
+		void DirectWheelButtons(XINPUT_GAMEPAD& a_pad)
+		{
+			static WORD s_prevDirect = 0;
+			const auto&  st = settings::Get();
+			const WORD   wheelBtn = static_cast<WORD>(st.wheelButton ? st.wheelButton : XINPUT_GAMEPAD_DPAD_DOWN);
+			const std::array<std::pair<WORD, wheels::Wheel>, 3> direct{ {
+				{ static_cast<WORD>(st.equipmentWheelButton), wheels::Wheel::kEquipment },
+				{ static_cast<WORD>(st.magicWheelButton), wheels::Wheel::kMagic },
+				{ static_cast<WORD>(st.ammoWheelButton), wheels::Wheel::kAmmo } } };
+			WORD held = 0;
+			const bool inGame = (menus::Active() == menus::Menu::kNone && !menus::AnyOpen()) || quickkeys::RadialOpen();
+			for (const auto& [mask, wheel] : direct) {
+				if (!mask || mask == wheelBtn || !inGame || !(a_pad.wButtons & mask)) continue;
+				held |= mask;
+				if (!(s_prevDirect & mask)) {
+					if (wheels::Active() != wheel) g_stayUsedSlot = -1;
+					wheels::SetActive(wheel);
+				}
 			}
-			const menus::Menu menu = menus::Active();
-			if (menu != g_prevMenu) {
+			s_prevDirect = held;
+			if (held) a_pad.wButtons = static_cast<WORD>((a_pad.wButtons & ~held) | wheelBtn);
+		}
+
+		// a menu opened or closed: the menu rules start again, and a menu ends a latched wheel
+		void TrackMenu(menus::Menu a_menu)
+		{
+			if (a_menu != g_prevMenu) {
 				ResetMenuState();
 				SetMagicPanel(false);
-				if (menu != menus::Menu::kNone) {
+				if (a_menu != menus::Menu::kNone) {
 					g_latched = false;       // a menu opening ends a latched wheel
 					g_pendingLatch = false;
 					g_suppressDown = false;
 				}
-				g_prevMenu = menu;
+				g_prevMenu = a_menu;
 			}
-			WORD out = raw;
+		}
 
-			// the ammo wheel (its button in gameplay): while it is open it takes the read (Ammo.cpp)
-			quickkeys::BoostAnimations();
-			wheelname::Tick();   // "Inventory Wheel" / "Magic Wheel" over the wheel on screen
-			magicwheel::Tick();   // the Magic wheel's own widget over the game's wheel; no spells on the inventory wheel
-			const bool ammoTook = ammo::Rewrite(a_pad, raw, pressed, out, menu == menus::Menu::kNone && !menus::AnyOpen(), quickkeys::RadialOpen());
-
-			if (ammoTook) {
-				// the D-pad, A, B and the right stick were the ammo wheel's
-			} else if (interop::ControllerKeyboardOpen()) {
-				// the search keyboard has the pad: the menu rules stand aside
-			} else if (menu != menus::Menu::kNone) {
-				// ---- the inventory / magic menu ----
-				// the magic menu's panel, read from the widgets themselves five times a second (the owner, 2026-09-30:
-				// "I switched tabs to the magic and the magic wheel doesn't appear" - the panel stayed up across the tab
-				// switch, and the old toggle-tracking only learned of it from a D-pad down hold)
-				if (menu == menus::Menu::kMagic) {
-					static Clock::time_point s_nextLook{};
-					if (now >= s_nextLook) {
-						s_nextLook = now + 200ms;
-						const bool up = quickkeys::AnyWheelVisible();
-						if (up != quickkeys::MagicPanelUp()) {
-							logger::info("pad: the magic menu's wheel panel is {}", up ? "showing - the Magic wheel" : "hidden");
-						}
-						SetMagicPanel(up);
+		// the Inventory and the Magic menu: favourites, the assign panel (A, X held, D-pad / triggers cycle), D-pad down
+		void MenuRules(Read& r)
+		{
+			XINPUT_GAMEPAD&   a_pad = r.pad;
+			const WORD        raw = r.raw;
+			const WORD        pressed = r.pressed;
+			const WORD        released = r.released;
+			const bool        ltPressed = r.ltPressed;
+			const bool        rtPressed = r.rtPressed;
+			const auto        now = r.now;
+			const menus::Menu menu = r.menu;
+			WORD&             out = r.out;
+			// the magic menu's panel, read from the widgets themselves five times a second (the owner, 2026-09-30:
+			// "I switched tabs to the magic and the magic wheel doesn't appear" - the panel stayed up across the tab
+			// switch, and the old toggle-tracking only learned of it from a D-pad down hold)
+			if (menu == menus::Menu::kMagic) {
+				static Clock::time_point s_nextLook{};
+				if (now >= s_nextLook) {
+					s_nextLook = now + 200ms;
+					const bool up = quickkeys::AnyWheelVisible();
+					if (up != quickkeys::MagicPanelUp()) {
+						logger::info("pad: the magic menu's wheel panel is {}", up ? "showing - the Magic wheel" : "hidden");
 					}
+					SetMagicPanel(up);
 				}
-				// the favourite button (uFavouriteButton): Select by default, so Y stays the game's own. With 0x8000 (Y) it is the
-				// original behaviour: Y favourites and the game's sorting moves to the left stick click. 0 = no controller button.
-				const WORD favButton = static_cast<WORD>(settings::Get().favouriteButton);
-				if (favButton) {
-					out &= ~favButton;   // the game never sees it
-					if (pressed & favButton) {
-						wheels::Favourite(menu);
-					}
+			}
+			// the favourite button (uFavouriteButton): Select by default, so Y stays the game's own. With 0x8000 (Y) it is the
+			// original behaviour: Y favourites and the game's sorting moves to the left stick click. 0 = no controller button.
+			const WORD favButton = static_cast<WORD>(settings::Get().favouriteButton);
+			if (favButton) {
+				out &= ~favButton;   // the game never sees it
+				if (pressed & favButton) {
+					wheels::Favourite(menu);
 				}
-				// a favourite cannot be dropped (X drops, holding X drops the stack) - the owner, 2026-09-29
-				if (menu == menus::Menu::kInventory && (pressed & XINPUT_GAMEPAD_X)) {
-					const auto item = rows::HighlightedItem();
-					if (wheels::IsFavourite(item)) {
-						if (settings::Get().blockFavouriteDropSell) {
-							g_swallowX = true;
-							logger::info("pad: X on {} - a favourite cannot be dropped", inventory::NameOf(item));
-						} else {
-							wheels::NoteLeaving(item);   // dropped: it leaves the wheel when none is carried
-						}
-					}
-				}
-				if (favButton == XINPUT_GAMEPAD_Y) {   // only when Y was taken for favourites
-					out &= ~XINPUT_GAMEPAD_LEFT_THUMB;
-					if (raw & XINPUT_GAMEPAD_LEFT_THUMB) {
-						out |= XINPUT_GAMEPAD_Y;   // the game's sorting, moved from Y to the stick click
-					}
-				}
-				if (settings::Get().dpadDownPanel) {   // bDpadDownPanel=0: D-pad down stays the game's; L3 (Show Shortcuts) opens the panel natively
-					out &= ~XINPUT_GAMEPAD_DPAD_DOWN;
-					if (pressed & XINPUT_GAMEPAD_DPAD_DOWN) {
-						g_menuDownHeld = true;
-						g_menuDownFired = false;
-						g_menuDownAt = now;
-					}
-					if (g_menuDownHeld && !g_menuDownFired && (raw & XINPUT_GAMEPAD_DPAD_DOWN) && now - g_menuDownAt >= kHoldThreshold) {
-						g_menuDownFired = true;
-						g_pulseLS = kPulseReads;   // the game's own Show/Hide Shortcuts
-						logger::info("pad: D-pad down held in the {} - assign panel toggled", menus::Name(menu));
-						}
-					if (released & XINPUT_GAMEPAD_DPAD_DOWN) {
-						if (g_menuDownHeld && !g_menuDownFired) {
-							g_pulseDown = kPulseReads;   // a tap: the list moves one row, as before
-						}
-						ResetMenuState();
-					}
-				}
-				if (quickkeys::PanelOpen() || (menu == menus::Menu::kMagic && quickkeys::MagicPanelUp())) {
-					// B backs out of the panel (the game's own toggle, as the hold on D-pad down); the next B leaves the menu
-					if (pressed & XINPUT_GAMEPAD_B) {
-						g_swallowB = true;
-						g_pulseLS = kPulseReads;
-						SetMagicPanel(false);
-						logger::info("pad: B with the assign panel showing - panel closed");
-					}
-					// A: in the inventory the game's Assign Item, watched (again on the same item removes it); in the magic
-					// menu the Magic wheel's own, and the game never sees it
-					// with no slot pointed there is nothing to assign: A stays the game's, and the spell under it is equipped
-					// (the owner, 2026-09-30: "I tried to select the alteration spell in there, but it wouldn't let me select
-					// it" - the panel read as showing and every A went to "assign with no slot pointed")
-					if (pressed & XINPUT_GAMEPAD_A) {
-						if (!wheels::Ready()) g_swallowA = true;
-						if (wheels::AssignmentWheel(menu) == wheels::Wheel::kAmmo) g_swallowA = true;
-						const int pointed = PointedKey();
-						if (pointed >= 0) {
-							if (wheels::AssignmentWheel(menu) != wheels::Wheel::kEquipment) {
-								g_swallowA = true;
-							}
-							wheels::AssignPressed(menu, pointed);
-						}
-					}
-					// X held on a pointed slot: every entry comes off it. X is swallowed while a slot is pointed, so the game's
-					// Drop never sees it (a tap does nothing).
-					if ((pressed & XINPUT_GAMEPAD_X) && PointedKey() >= 0) {
-						g_panelX = true;
-						g_panelXFired = false;
-						g_panelXAt = now;
+			}
+			// a favourite cannot be dropped (X drops, holding X drops the stack) - the owner, 2026-09-29
+			if (menu == menus::Menu::kInventory && (pressed & XINPUT_GAMEPAD_X)) {
+				const auto item = rows::HighlightedItem();
+				if (wheels::IsFavourite(item)) {
+					if (settings::Get().blockFavouriteDropSell) {
 						g_swallowX = true;
-					}
-					if (g_panelX) {
-						if (!(raw & XINPUT_GAMEPAD_X)) {
-							g_panelX = false;
-						} else if (!g_panelXFired && now - g_panelXAt >= 600ms) {
-							g_panelXFired = true;
-							const int key = PointedKey();
-							if (key >= 0) {
-								wheels::ClearSlot(wheels::AssignmentWheel(menu), key);
-							}
-						}
-					}
-					out &= ~(XINPUT_GAMEPAD_DPAD_LEFT | XINPUT_GAMEPAD_DPAD_RIGHT);
-					const auto wheel = wheels::AssignmentWheel(menu);
-					// Assign-panel triggers belong to entry cycling, never to the menu's tab navigation.
-					if (messagediscovery::InputAllowed((pressed & (XINPUT_GAMEPAD_DPAD_LEFT | XINPUT_GAMEPAD_DPAD_RIGHT)) || ltPressed || rtPressed, [] { return quickkeys::GameMessageUp(); })) {
-						if ((pressed & XINPUT_GAMEPAD_DPAD_LEFT) || ltPressed) { wheels::CycleEntry(wheel, PointedKey(), -1); }
-						if ((pressed & XINPUT_GAMEPAD_DPAD_RIGHT) || rtPressed) { wheels::CycleEntry(wheel, PointedKey(), +1); }
-					}
-					a_pad.bLeftTrigger = 0;
-					a_pad.bRightTrigger = 0;
-				}
-			} else {
-				// ---- any other menu (a container or barter list): a favourite cannot be sold or handed over. The HUD radial
-				// is a Gamebryo menu too, so this checks for it first. ----
-				if (menus::AnyOpen() && !quickkeys::RadialOpen()) {
-					const WORD favButton = static_cast<WORD>(settings::Get().favouriteButton);
-					if (favButton && (pressed & favButton)) {
-						// the favourite button on the player's own row of a container or barter list: on or off the wheel, as in the Inventory (the star
-						// there was only clickable); the other side's rows (the container's, the merchant's) give no item, so nothing happens there
-						if (const auto own = rows::HighlightedPlayerItemInContainer()) {
-							out &= ~favButton;   // the game never sees it here
-							wheels::ToggleItem(own);
-							logger::info("pad: the favourite button on {} in a container or barter list - toggled", inventory::NameOf(own));
-						}
-					}
-				}
-				if (menus::AnyOpen() && !quickkeys::RadialOpen() && (pressed & XINPUT_GAMEPAD_A)) {
-					const auto item = rows::HighlightedPlayerItemInContainer();
-					if (wheels::IsFavourite(item)) {
-						if (settings::Get().blockFavouriteDropSell) {
-							g_swallowA = true;
-							logger::info("pad: A on {} in a container or barter list - a favourite cannot be sold or handed over", inventory::NameOf(item));
-						} else {
-							wheels::NoteLeaving(item);   // sold or handed over: it leaves the wheel when none is carried
-						}
-					}
-				}
-				// ---- gameplay ----
-				// the button that opens the game's wheel (uWheelButton): D-pad down by default; LB is the game's own binding
-				const WORD wheelBtn = settings::Get().wheelButton ? static_cast<WORD>(settings::Get().wheelButton) : static_cast<WORD>(XINPUT_GAMEPAD_DPAD_DOWN);
-				const auto sinceDown = [&]() { return std::chrono::duration_cast<std::chrono::milliseconds>(now - g_gameDownAt).count(); };
-				const bool radialOpen = quickkeys::RadialOpen();
-				// The wheel button went down again while the last wheel was still closing (a quick reopen): its close hold must not carry over (IWP-024)
-				if (g_closeEpoch.Superseded(g_closingMagic, quickkeys::OpenCount(), (pressed & wheelBtn) != 0)) {
-					AbandonClose("the wheel button went down again before the radial reported closed");
-				}
-				// Resolve wheel and pointing before a same-read release or A/RB. Native hover
-// events still describe the previous game input when XInput is being read.
-				if (radialOpen && !g_leftToGame && !g_closingMagic && !(pressed & XINPUT_GAMEPAD_B)) {
-					const auto previousWheel = wheels::Active();
-					if (pressed & XINPUT_GAMEPAD_DPAD_LEFT) wheels::SwitchWheel(-1);
-					if (pressed & XINPUT_GAMEPAD_DPAD_RIGHT) wheels::SwitchWheel(+1);
-					if (wheels::Active() != previousWheel) g_stayUsedSlot = -1;
-					SnapToFilled(a_pad);
-					RestSnap(a_pad, now);
-					if (!keyboard::MouseOwnsRadial() && !keyboard::ScriptRunning()) {
-						g_liveStickKey = radialselection::LiveStickKey(a_pad.sThumbRX, a_pad.sThumbRY);
-						if (g_liveStickKey >= 0 && quickkeys::PointedSlot() != g_liveStickKey + 1)
-							quickkeys::Repoint(g_liveStickKey);
-					}
-				}
-
-				if (radialOpen && !g_sawRadialOpen) {
-					logger::info("pad: the wheel showed {} ms after the wheel button went down", sinceDown());
-				}
-				if (!radialOpen && g_sawRadialOpen && g_latched) {
-					g_latched = false;   // the game closed a latched wheel by itself (a message box): let go, or the held button reopened it again and again
-					logger::info("pad: the latched wheel was closed by the game - the wheel button is let go");
-				}
-				g_sawRadialOpen = radialOpen;
-				if (g_pendingLatch) {
-					if (radialOpen) {
-						g_pendingLatch = false;
-						g_latched = true;        // the tap that came before the wheel: it stays open until the next press
-						logger::info("pad: the tapped wheel showed - it stays open until the next press");
-					} else if (now - g_pendingSince > kPendingLatchLimit) {
-						g_pendingLatch = false;  // never leave the button held for the game when no wheel came
-						logger::warn("pad: no wheel showed within {} ms of the tap - the wheel button is let go", kPendingLatchLimit.count());
-					}
-				}
-				if (pressed & wheelBtn) {
-					if (g_latched) {
-						g_latched = false;
-						g_suppressDown = true;   // the game sees the button go up: the wheel closes - on nothing
-						if (radialOpen && !(pressed & XINPUT_GAMEPAD_B)) {
-							CloseOnPointed("the wheel button pressed again");
-						}
+						logger::info("pad: X on {} - a favourite cannot be dropped", inventory::NameOf(item));
 					} else {
-						if (g_pendingLatch) {
-							g_pendingLatch = false;   // pressed again before the wheel showed: this press decides
-							logger::info("pad: wheel button pressed again before the wheel showed - this press is timed instead");
-						}
-						g_gameDownAt = now;
-						// The wheel is a TES menu too, but it is not open yet at its own press, so a menu up now is a real
-						// one (the system menu, a container): D-pad down there is list navigation and is never held.
-						g_downInMenu = !radialOpen && menus::AnyOpen() && menus::MsSinceClosed() > 600;   // a menu still closing (the game reports menu mode a moment longer) is gameplay
-						logger::debug("pad: wheel button down (wheel open: {}, in a menu: {})", radialOpen, g_downInMenu);
+						wheels::NoteLeaving(item);   // dropped: it leaves the wheel when none is carried
 					}
-				}
-				if (released & wheelBtn) {
-					if (g_suppressDown) {
-						g_suppressDown = false;
-						logger::debug("pad: wheel button up after {} ms - already handled", sinceDown());
-					} else if (now - g_gameDownAt < kHoldThreshold && radialOpen) {
-						g_latched = true;        // a tap: the wheel stays open until the next press
-						logger::info("pad: wheel button tapped ({} ms) - the wheel stays open until the next press", sinceDown());
-					} else if (now - g_gameDownAt < kHoldThreshold && !g_downInMenu) {
-						g_pendingLatch = true;   // a tap let go before the wheel showed: keep it held for the game until it does
-						g_pendingSince = now;
-						logger::info("pad: wheel button tapped ({} ms) before the wheel showed - held for the game until it opens", sinceDown());
-					} else if (radialOpen && !(pressed & XINPUT_GAMEPAD_B)) {
-						CloseOnPointed("the wheel button let go");   // a hold let go: nothing used, on either wheel
-					} else {
-						logger::info("pad: wheel button up after {} ms and no wheel showed", sinceDown());
-					}
-				}
-				out &= ~wheelBtn;
-				if (((raw & wheelBtn) && !g_suppressDown) || g_latched || g_pendingLatch) {
-					out |= wheelBtn;
-				}
-				if (!quickkeys::RadialOpen()) {
-					RestSnap(a_pad, now);   // only notes that it closed
-				}
-				if (quickkeys::RadialOpen() && (pressed & XINPUT_GAMEPAD_B)) {
-					slowtime::CloseRequested();
-					// B backs out: nothing is used, the wheel closes
-					const int bPointed = PointedKey();
-					quickkeys::ClearPointer();
-					wheels::HoldKey(bPointed);   // as CloseOnNothing: the game's close must find no item on the key it re-points to
-					g_closingMagic = true;       // held clear until the radial has closed, then the key goes back (ReleaseKey)
-					g_latched = false;
-					if (raw & wheelBtn) { g_suppressDown = true; }
-					g_swallowB = true;
-					g_centreStick = kPulseReads * 2;
-					out &= ~wheelBtn;
-					logger::info("pad: B on the wheel - closed without using a slot");
-				} else if (quickkeys::RadialOpen() && !g_leftToGame && !g_closingMagic) {
-					const int slot = PointedKey();
-					if (g_stayUsedSlot >= 0 && slot != g_stayUsedSlot && slot >= 0) g_stayUsedSlot = -1;   // pointed elsewhere: a later close may use that one
-					out &= ~((XINPUT_GAMEPAD_DPAD_LEFT | XINPUT_GAMEPAD_DPAD_RIGHT | XINPUT_GAMEPAD_LEFT_SHOULDER | XINPUT_GAMEPAD_RIGHT_SHOULDER) & ~wheelBtn);   // never the wheel button itself
-					const int stepSlot = wheels::Active() == wheels::Wheel::kAmmo ? wheels::AmmoSlotAtRing(slot) : slot;   // the Ammo view draws its arrows at ring positions
-										if (ltPressed && stepSlot >= 0) { wheels::CycleEntry(wheels::Active(), stepSlot, -1); }
-										if (rtPressed && stepSlot >= 0) { wheels::CycleEntry(wheels::Active(), stepSlot, +1); }
-					// LB is held from the game and does nothing on the wheel (the owner, 2026-10-01: "I pressed left bumper and it
-					// removed the selected magic from the wheel. But left bumper shouldn't do anything like that") - Y in the
-					// menus is how an entry comes off a wheel
-					// A chooses and closes, as on the game's own wheel (the owner, 2026-09-30: "I tried selecting clairvoyance
-					// with pressing A like the vanilla game does and it didn't close the wheel and select the magic it only
-					// selected it when I pressed the right bumper it should do both"). On the Magic wheel it is ours - the spell
-					// is set and the game never sees A, so it cannot use its own key there; on the inventory wheel A stays the
-					// game's, and a key holding a spell still uses nothing.
-					// A is ours on both wheels now (the game never sees it): on the inventory wheel it uses the pointed slot
-					// exactly as RB does (2026-10-01: "make RB (and A on the inventory wheel) use the pointed key")
-					// a message of the game is up over the wheel (its question or its notice): A and RB answer it, they choose nothing - every answer was a
-					// new choice and brought the message back ("apply the poison?", "already poisoned", 2026-10-18)
-					const bool messageUp = (pressed & (XINPUT_GAMEPAD_A | XINPUT_GAMEPAD_RIGHT_SHOULDER)) && quickkeys::GameMessageUp();
-					if (messageUp) {
-						logger::info("pad: a message of the game is up over the wheel - A / RB answer it, nothing is chosen");
-					}
-					if ((pressed & XINPUT_GAMEPAD_A) && !messageUp) {
-						bool stayOpen = false;
-						if (wheels::Active() == wheels::Wheel::kMagic) {
-							CloseOnMagic(slot);
-							logger::info("pad: A on the Magic wheel - slot {} chosen, the wheel closes", slot + 1);
-						} else if (wheels::Active() == wheels::Wheel::kAmmo) {
-							CloseOnAmmo(slot);
-						} else if (settings::Get().stayOpenAfterUse && (slot < 0 || !inventory::Keys()[static_cast<std::size_t>(slot)])) {
-							stayOpen = true;   // A or a click on an empty slot of a wheel that stays open: nothing happens, it stays open
-						} else if (wheels::StaysOpenAfterUse(slot) && !magicwheel::IsSpellKey(slot)) {
-							wheels::UseNow(slot, keyboard::ScriptRunning() ? "click" : "A", true);   // bStayOpenAfterUse: the item is put on or taken off and the wheel stays up
-							stayOpen = true;
-							g_stayUsedSlot = slot;
-						} else {
-							CloseOnEquipment(slot, keyboard::ScriptRunning() ? "click" : "A");   // the mouse click is a script of the keyboard's
-						}
-						g_swallowA = true;
-						if (stayOpen) {
-							out &= ~XINPUT_GAMEPAD_A;   // the game never sees A; the wheel button is left as it is
-						} else {
-							g_latched = false;
-							if (raw & wheelBtn) { g_suppressDown = true; }
-							out &= ~(wheelBtn | XINPUT_GAMEPAD_A);   // let go now: the wheel closes
-						}
-					}
-					if ((pressed & XINPUT_GAMEPAD_RIGHT_SHOULDER) && !messageUp) {
-						bool stayOpenRB = false;
-						if (wheels::Active() == wheels::Wheel::kMagic) {
-							CloseOnMagic(slot);
-						} else if (wheels::Active() == wheels::Wheel::kAmmo) {
-							CloseOnAmmo(slot);
-						} else if (settings::Get().stayOpenAfterUse && (slot < 0 || !inventory::Keys()[static_cast<std::size_t>(slot)])) {
-							stayOpenRB = true;   // RB on an empty slot of a wheel that stays open: nothing happens
-						} else if (wheels::StaysOpenAfterUse(slot) && !magicwheel::IsSpellKey(slot)) {
-							wheels::UseNow(slot, "RB", true);   // bStayOpenAfterUse: the wheel stays up
-							stayOpenRB = true;
-							g_stayUsedSlot = slot;
-						} else {
-							CloseOnEquipment(slot, "RB");
-						}
-						if (!stayOpenRB) {
-							g_latched = false;
-							if (raw & wheelBtn) { g_suppressDown = true; }
-							out &= ~wheelBtn;   // let go now: the wheel closes (on nothing - the use follows)
-						}
-					}
-					a_pad.bLeftTrigger = 0;
-					a_pad.bRightTrigger = 0;
 				}
 			}
+			if (favButton == XINPUT_GAMEPAD_Y) {   // only when Y was taken for favourites
+				out &= ~XINPUT_GAMEPAD_LEFT_THUMB;
+				if (raw & XINPUT_GAMEPAD_LEFT_THUMB) {
+					out |= XINPUT_GAMEPAD_Y;   // the game's sorting, moved from Y to the stick click
+				}
+			}
+			if (settings::Get().dpadDownPanel) {   // bDpadDownPanel=0: D-pad down stays the game's; L3 (Show Shortcuts) opens the panel natively
+				out &= ~XINPUT_GAMEPAD_DPAD_DOWN;
+				if (pressed & XINPUT_GAMEPAD_DPAD_DOWN) {
+					g_menuDownHeld = true;
+					g_menuDownFired = false;
+					g_menuDownAt = now;
+				}
+				if (g_menuDownHeld && !g_menuDownFired && (raw & XINPUT_GAMEPAD_DPAD_DOWN) && now - g_menuDownAt >= kHoldThreshold) {
+					g_menuDownFired = true;
+					g_pulseLS = kPulseReads;   // the game's own Show/Hide Shortcuts
+					logger::info("pad: D-pad down held in the {} - assign panel toggled", menus::Name(menu));
+					}
+				if (released & XINPUT_GAMEPAD_DPAD_DOWN) {
+					if (g_menuDownHeld && !g_menuDownFired) {
+						g_pulseDown = kPulseReads;   // a tap: the list moves one row, as before
+					}
+					ResetMenuState();
+				}
+			}
+			if (quickkeys::PanelOpen() || (menu == menus::Menu::kMagic && quickkeys::MagicPanelUp())) {
+				// B backs out of the panel (the game's own toggle, as the hold on D-pad down); the next B leaves the menu
+				if (pressed & XINPUT_GAMEPAD_B) {
+					g_swallowB = true;
+					g_pulseLS = kPulseReads;
+					SetMagicPanel(false);
+					logger::info("pad: B with the assign panel showing - panel closed");
+				}
+				// A: in the inventory the game's Assign Item, watched (again on the same item removes it); in the magic
+				// menu the Magic wheel's own, and the game never sees it
+				// with no slot pointed there is nothing to assign: A stays the game's, and the spell under it is equipped
+				// (the owner, 2026-09-30: "I tried to select the alteration spell in there, but it wouldn't let me select
+				// it" - the panel read as showing and every A went to "assign with no slot pointed")
+				if (pressed & XINPUT_GAMEPAD_A) {
+					if (!wheels::Ready()) g_swallowA = true;
+					if (wheels::AssignmentWheel(menu) == wheels::Wheel::kAmmo) g_swallowA = true;
+					const int pointed = PointedKey();
+					if (pointed >= 0) {
+						if (wheels::AssignmentWheel(menu) != wheels::Wheel::kEquipment) {
+							g_swallowA = true;
+						}
+						wheels::AssignPressed(menu, pointed);
+					}
+				}
+				// X held on a pointed slot: every entry comes off it. X is swallowed while a slot is pointed, so the game's
+				// Drop never sees it (a tap does nothing).
+				if ((pressed & XINPUT_GAMEPAD_X) && PointedKey() >= 0) {
+					g_panelX = true;
+					g_panelXFired = false;
+					g_panelXAt = now;
+					g_swallowX = true;
+				}
+				if (g_panelX) {
+					if (!(raw & XINPUT_GAMEPAD_X)) {
+						g_panelX = false;
+					} else if (!g_panelXFired && now - g_panelXAt >= 600ms) {
+						g_panelXFired = true;
+						const int key = PointedKey();
+						if (key >= 0) {
+							wheels::ClearSlot(wheels::AssignmentWheel(menu), key);
+						}
+					}
+				}
+				out &= ~(XINPUT_GAMEPAD_DPAD_LEFT | XINPUT_GAMEPAD_DPAD_RIGHT);
+				const auto wheel = wheels::AssignmentWheel(menu);
+				// Assign-panel triggers belong to entry cycling, never to the menu's tab navigation.
+				if (messagediscovery::InputAllowed((pressed & (XINPUT_GAMEPAD_DPAD_LEFT | XINPUT_GAMEPAD_DPAD_RIGHT)) || ltPressed || rtPressed, [] { return quickkeys::GameMessageUp(); })) {
+					if ((pressed & XINPUT_GAMEPAD_DPAD_LEFT) || ltPressed) { wheels::CycleEntry(wheel, PointedKey(), -1); }
+					if ((pressed & XINPUT_GAMEPAD_DPAD_RIGHT) || rtPressed) { wheels::CycleEntry(wheel, PointedKey(), +1); }
+				}
+				a_pad.bLeftTrigger = 0;
+				a_pad.bRightTrigger = 0;
+			}
+		}
 
+		// any other menu (a container or barter list): a favourite cannot be sold or handed over. The HUD radial is a Gamebryo
+		// menu too, so this checks for it first.
+		void ContainerRules(Read& r)
+		{
+			const WORD        pressed = r.pressed;
+			WORD&             out = r.out;
+			if (menus::AnyOpen() && !quickkeys::RadialOpen()) {
+				const WORD favButton = static_cast<WORD>(settings::Get().favouriteButton);
+				if (favButton && (pressed & favButton)) {
+					// the favourite button on the player's own row of a container or barter list: on or off the wheel, as in the Inventory (the star
+					// there was only clickable); the other side's rows (the container's, the merchant's) give no item, so nothing happens there
+					if (const auto own = rows::HighlightedPlayerItemInContainer()) {
+						out &= ~favButton;   // the game never sees it here
+						wheels::ToggleItem(own);
+						logger::info("pad: the favourite button on {} in a container or barter list - toggled", inventory::NameOf(own));
+					}
+				}
+			}
+			if (menus::AnyOpen() && !quickkeys::RadialOpen() && (pressed & XINPUT_GAMEPAD_A)) {
+				const auto item = rows::HighlightedPlayerItemInContainer();
+				if (wheels::IsFavourite(item)) {
+					if (settings::Get().blockFavouriteDropSell) {
+						g_swallowA = true;
+						logger::info("pad: A on {} in a container or barter list - a favourite cannot be sold or handed over", inventory::NameOf(item));
+					} else {
+						wheels::NoteLeaving(item);   // sold or handed over: it leaves the wheel when none is carried
+					}
+				}
+			}
+		}
+
+		// the radial is up: D-pad L/R switch wheels, the stick points (filled slots only, the centre rest snap)
+		void PointRadial(Read& r)
+		{
+			XINPUT_GAMEPAD&   a_pad = r.pad;
+			const WORD        pressed = r.pressed;
+			const auto        now = r.now;
+			const auto previousWheel = wheels::Active();
+			if (pressed & XINPUT_GAMEPAD_DPAD_LEFT) wheels::SwitchWheel(-1);
+			if (pressed & XINPUT_GAMEPAD_DPAD_RIGHT) wheels::SwitchWheel(+1);
+			if (wheels::Active() != previousWheel) g_stayUsedSlot = -1;
+			SnapToFilled(a_pad);
+			RestSnap(a_pad, now);
+			if (!keyboard::MouseOwnsRadial() && !keyboard::ScriptRunning()) {
+				g_liveStickKey = radialselection::LiveStickKey(a_pad.sThumbRX, a_pad.sThumbRY);
+				if (g_liveStickKey >= 0 && quickkeys::PointedSlot() != g_liveStickKey + 1)
+					quickkeys::Repoint(g_liveStickKey);
+			}
+		}
+
+		// the wheel button in gameplay: tapped (the wheel stays open until the next press), held, or pressed before the wheel showed
+		void WheelButton(Read& r, WORD a_wheelBtn, bool a_radialOpen)
+		{
+			XINPUT_GAMEPAD&   a_pad = r.pad;
+			const WORD        raw = r.raw;
+			const WORD        pressed = r.pressed;
+			const WORD        released = r.released;
+			const auto        now = r.now;
+			WORD&             out = r.out;
+			const auto sinceDown = [&]() { return std::chrono::duration_cast<std::chrono::milliseconds>(now - g_gameDownAt).count(); };
+			if (a_radialOpen && !g_sawRadialOpen) {
+				logger::info("pad: the wheel showed {} ms after the wheel button went down", sinceDown());
+			}
+			if (!a_radialOpen && g_sawRadialOpen && g_latched) {
+				g_latched = false;   // the game closed a latched wheel by itself (a message box): let go, or the held button reopened it again and again
+				logger::info("pad: the latched wheel was closed by the game - the wheel button is let go");
+			}
+			g_sawRadialOpen = a_radialOpen;
+			if (g_pendingLatch) {
+				if (a_radialOpen) {
+					g_pendingLatch = false;
+					g_latched = true;        // the tap that came before the wheel: it stays open until the next press
+					logger::info("pad: the tapped wheel showed - it stays open until the next press");
+				} else if (now - g_pendingSince > kPendingLatchLimit) {
+					g_pendingLatch = false;  // never leave the button held for the game when no wheel came
+					logger::warn("pad: no wheel showed within {} ms of the tap - the wheel button is let go", kPendingLatchLimit.count());
+				}
+			}
+			if (pressed & a_wheelBtn) {
+				if (g_latched) {
+					g_latched = false;
+					g_suppressDown = true;   // the game sees the button go up: the wheel closes - on nothing
+					if (a_radialOpen && !(pressed & XINPUT_GAMEPAD_B)) {
+						CloseOnPointed("the wheel button pressed again");
+					}
+				} else {
+					if (g_pendingLatch) {
+						g_pendingLatch = false;   // pressed again before the wheel showed: this press decides
+						logger::info("pad: wheel button pressed again before the wheel showed - this press is timed instead");
+					}
+					g_gameDownAt = now;
+					// The wheel is a TES menu too, but it is not open yet at its own press, so a menu up now is a real
+					// one (the system menu, a container): D-pad down there is list navigation and is never held.
+					g_downInMenu = !a_radialOpen && menus::AnyOpen() && menus::MsSinceClosed() > 600;   // a menu still closing (the game reports menu mode a moment longer) is gameplay
+					logger::debug("pad: wheel button down (wheel open: {}, in a menu: {})", a_radialOpen, g_downInMenu);
+				}
+			}
+			if (released & a_wheelBtn) {
+				if (g_suppressDown) {
+					g_suppressDown = false;
+					logger::debug("pad: wheel button up after {} ms - already handled", sinceDown());
+				} else if (now - g_gameDownAt < kHoldThreshold && a_radialOpen) {
+					g_latched = true;        // a tap: the wheel stays open until the next press
+					logger::info("pad: wheel button tapped ({} ms) - the wheel stays open until the next press", sinceDown());
+				} else if (now - g_gameDownAt < kHoldThreshold && !g_downInMenu) {
+					g_pendingLatch = true;   // a tap let go before the wheel showed: keep it held for the game until it does
+					g_pendingSince = now;
+					logger::info("pad: wheel button tapped ({} ms) before the wheel showed - held for the game until it opens", sinceDown());
+				} else if (a_radialOpen && !(pressed & XINPUT_GAMEPAD_B)) {
+					CloseOnPointed("the wheel button let go");   // a hold let go: nothing used, on either wheel
+				} else {
+					logger::info("pad: wheel button up after {} ms and no wheel showed", sinceDown());
+				}
+			}
+			out &= ~a_wheelBtn;
+			if (((raw & a_wheelBtn) && !g_suppressDown) || g_latched || g_pendingLatch) {
+				out |= a_wheelBtn;
+			}
+			if (!quickkeys::RadialOpen()) {
+				RestSnap(a_pad, now);   // only notes that it closed
+			}
+		}
+
+		// the radial is up: B backs out; LT / RT cycle the pointed slot; A and RB choose (unless a message of the game is up)
+		void RadialChoices(Read& r, WORD a_wheelBtn)
+		{
+			XINPUT_GAMEPAD&   a_pad = r.pad;
+			const WORD        raw = r.raw;
+			const WORD        pressed = r.pressed;
+			const bool        ltPressed = r.ltPressed;
+			const bool        rtPressed = r.rtPressed;
+			WORD&             out = r.out;
+			if (quickkeys::RadialOpen() && (pressed & XINPUT_GAMEPAD_B)) {
+				slowtime::CloseRequested();
+				// B backs out: nothing is used, the wheel closes
+				const int bPointed = PointedKey();
+				quickkeys::ClearPointer();
+				wheels::HoldKey(bPointed);   // as CloseOnNothing: the game's close must find no item on the key it re-points to
+				g_closingMagic = true;       // held clear until the radial has closed, then the key goes back (ReleaseKey)
+				g_latched = false;
+				if (raw & a_wheelBtn) { g_suppressDown = true; }
+				g_swallowB = true;
+				g_centreStick = kPulseReads * 2;
+				out &= ~a_wheelBtn;
+				logger::info("pad: B on the wheel - closed without using a slot");
+			} else if (quickkeys::RadialOpen() && !g_leftToGame && !g_closingMagic) {
+				const int slot = PointedKey();
+				if (g_stayUsedSlot >= 0 && slot != g_stayUsedSlot && slot >= 0) g_stayUsedSlot = -1;   // pointed elsewhere: a later close may use that one
+				out &= ~((XINPUT_GAMEPAD_DPAD_LEFT | XINPUT_GAMEPAD_DPAD_RIGHT | XINPUT_GAMEPAD_LEFT_SHOULDER | XINPUT_GAMEPAD_RIGHT_SHOULDER) & ~a_wheelBtn);   // never the wheel button itself
+				const int stepSlot = wheels::Active() == wheels::Wheel::kAmmo ? wheels::AmmoSlotAtRing(slot) : slot;   // the Ammo view draws its arrows at ring positions
+									if (ltPressed && stepSlot >= 0) { wheels::CycleEntry(wheels::Active(), stepSlot, -1); }
+									if (rtPressed && stepSlot >= 0) { wheels::CycleEntry(wheels::Active(), stepSlot, +1); }
+				// LB is held from the game and does nothing on the wheel (the owner, 2026-10-01: "I pressed left bumper and it
+				// removed the selected magic from the wheel. But left bumper shouldn't do anything like that") - Y in the
+				// menus is how an entry comes off a wheel
+				// A chooses and closes, as on the game's own wheel (the owner, 2026-09-30: "I tried selecting clairvoyance
+				// with pressing A like the vanilla game does and it didn't close the wheel and select the magic it only
+				// selected it when I pressed the right bumper it should do both"). On the Magic wheel it is ours - the spell
+				// is set and the game never sees A, so it cannot use its own key there; on the inventory wheel A stays the
+				// game's, and a key holding a spell still uses nothing.
+				// A is ours on both wheels now (the game never sees it): on the inventory wheel it uses the pointed slot
+				// exactly as RB does (2026-10-01: "make RB (and A on the inventory wheel) use the pointed key")
+				// a message of the game is up over the wheel (its question or its notice): A and RB answer it, they choose nothing - every answer was a
+				// new choice and brought the message back ("apply the poison?", "already poisoned", 2026-10-18)
+				const bool messageUp = (pressed & (XINPUT_GAMEPAD_A | XINPUT_GAMEPAD_RIGHT_SHOULDER)) && quickkeys::GameMessageUp();
+				if (messageUp) {
+					logger::info("pad: a message of the game is up over the wheel - A / RB answer it, nothing is chosen");
+				}
+				if ((pressed & XINPUT_GAMEPAD_A) && !messageUp) {
+					bool stayOpen = false;
+					if (wheels::Active() == wheels::Wheel::kMagic) {
+						CloseOnMagic(slot);
+						logger::info("pad: A on the Magic wheel - slot {} chosen, the wheel closes", slot + 1);
+					} else if (wheels::Active() == wheels::Wheel::kAmmo) {
+						CloseOnAmmo(slot);
+					} else if (settings::Get().stayOpenAfterUse && (slot < 0 || !inventory::Keys()[static_cast<std::size_t>(slot)])) {
+						stayOpen = true;   // A or a click on an empty slot of a wheel that stays open: nothing happens, it stays open
+					} else if (wheels::StaysOpenAfterUse(slot) && !magicwheel::IsSpellKey(slot)) {
+						wheels::UseNow(slot, keyboard::ScriptRunning() ? "click" : "A", true);   // bStayOpenAfterUse: the item is put on or taken off and the wheel stays up
+						stayOpen = true;
+						g_stayUsedSlot = slot;
+					} else {
+						CloseOnEquipment(slot, keyboard::ScriptRunning() ? "click" : "A");   // the mouse click is a script of the keyboard's
+					}
+					g_swallowA = true;
+					if (stayOpen) {
+						out &= ~XINPUT_GAMEPAD_A;   // the game never sees A; the wheel button is left as it is
+					} else {
+						g_latched = false;
+						if (raw & a_wheelBtn) { g_suppressDown = true; }
+						out &= ~(a_wheelBtn | XINPUT_GAMEPAD_A);   // let go now: the wheel closes
+					}
+				}
+				if ((pressed & XINPUT_GAMEPAD_RIGHT_SHOULDER) && !messageUp) {
+					bool stayOpenRB = false;
+					if (wheels::Active() == wheels::Wheel::kMagic) {
+						CloseOnMagic(slot);
+					} else if (wheels::Active() == wheels::Wheel::kAmmo) {
+						CloseOnAmmo(slot);
+					} else if (settings::Get().stayOpenAfterUse && (slot < 0 || !inventory::Keys()[static_cast<std::size_t>(slot)])) {
+						stayOpenRB = true;   // RB on an empty slot of a wheel that stays open: nothing happens
+					} else if (wheels::StaysOpenAfterUse(slot) && !magicwheel::IsSpellKey(slot)) {
+						wheels::UseNow(slot, "RB", true);   // bStayOpenAfterUse: the wheel stays up
+						stayOpenRB = true;
+						g_stayUsedSlot = slot;
+					} else {
+						CloseOnEquipment(slot, "RB");
+					}
+					if (!stayOpenRB) {
+						g_latched = false;
+						if (raw & a_wheelBtn) { g_suppressDown = true; }
+						out &= ~a_wheelBtn;   // let go now: the wheel closes (on nothing - the use follows)
+					}
+				}
+				a_pad.bLeftTrigger = 0;
+				a_pad.bRightTrigger = 0;
+			}
+		}
+
+		// gameplay: the wheel button, the radial's pointing and its choices
+		void GameplayRules(Read& r)
+		{
+			const WORD        pressed = r.pressed;
+			// the button that opens the game's wheel (uWheelButton): D-pad down by default; LB is the game's own binding
+			const WORD wheelBtn = settings::Get().wheelButton ? static_cast<WORD>(settings::Get().wheelButton) : static_cast<WORD>(XINPUT_GAMEPAD_DPAD_DOWN);
+			const bool radialOpen = quickkeys::RadialOpen();
+			// The wheel button went down again while the last wheel was still closing (a quick reopen): its close hold must not carry over (IWP-024)
+			if (g_closeEpoch.Superseded(g_closingMagic, quickkeys::OpenCount(), (pressed & wheelBtn) != 0)) {
+				AbandonClose("the wheel button went down again before the radial reported closed");
+			}
+			// Resolve wheel and pointing before a same-read release or A/RB. Native hover
+			// events still describe the previous game input when XInput is being read.
+			if (radialOpen && !g_leftToGame && !g_closingMagic && !(pressed & XINPUT_GAMEPAD_B)) {
+				PointRadial(r);
+			}
+
+			WheelButton(r, wheelBtn, radialOpen);
+			RadialChoices(r, wheelBtn);
+		}
+
+		// buttons a rule used are held from the game until they are let go
+		void SwallowHeldButtons(Read& r)
+		{
+			const WORD        raw = r.raw;
+			WORD&             out = r.out;
 			if (g_swallowB) {
 				if (raw & XINPUT_GAMEPAD_B) {
 					out &= ~XINPUT_GAMEPAD_B;
@@ -757,6 +801,12 @@ const int slot = settings::Get().chooseOnClose ? PointedKey() : -1;
 					g_swallowX = false;
 				}
 			}
+		}
+
+		// a use on the Equipment wheel waits for the radial to close: if it has not shortly, B closes it (twice at most)
+		void ForceClose(Read& r)
+		{
+			WORD&             out = r.out;
 			if (g_leftToGame && !quickkeys::RadialOpen()) {
 				g_leftToGame = false;
 			}
@@ -787,6 +837,12 @@ const int slot = settings::Get().chooseOnClose ? PointedKey() : -1;
 					g_bPulse = 0;
 				}
 			}
+		}
+
+		// while the radial closes on a Magic or Ammo slot (or after B) the stick is held centred and no slot is pointed
+		void HoldWhileClosing(Read& r)
+		{
+			XINPUT_GAMEPAD&   a_pad = r.pad;
 			if (g_closeEpoch.Superseded(g_closingMagic, quickkeys::OpenCount(), false)) {
 				AbandonClose("the radial reported another opening before it reported closed");
 			}
@@ -794,7 +850,7 @@ const int slot = settings::Get().chooseOnClose ? PointedKey() : -1;
 				if (!quickkeys::RadialOpen()) {
 					g_closingMagic = false;
 					wheels::ReleaseKey();
-quickkeys::RestorePointer("the radial closed");   // the selector arrow back for the next opening
+					quickkeys::RestorePointer("the radial closed");   // the selector arrow back for the next opening
 				} else {
 					a_pad.sThumbRX = 0;
 					a_pad.sThumbRY = 0;
@@ -804,11 +860,63 @@ quickkeys::RestorePointer("the radial closed");   // the selector arrow back for
 				}
 			}
 			g_closeEpoch.Note(g_closingMagic, quickkeys::OpenCount());
-if (g_centreStick > 0) {
+			if (g_centreStick > 0) {
 				a_pad.sThumbRX = 0;
 				a_pad.sThumbRY = 0;
 				--g_centreStick;
 			}
+		}
+
+		void Rewrite(XINPUT_GAMEPAD& a_pad)
+		{
+			g_liveStickKey = -1;
+			DirectWheelButtons(a_pad);
+			const WORD raw = a_pad.wButtons;
+			const WORD pressed = raw & ~g_prevRaw;
+			const WORD released = ~raw & g_prevRaw;
+			const bool ltPressed = a_pad.bLeftTrigger >= kTriggerOn && g_prevLT < kTriggerOn;
+			const bool rtPressed = a_pad.bRightTrigger >= kTriggerOn && g_prevRT < kTriggerOn;
+			g_prevRaw = raw;
+			g_prevLT = a_pad.bLeftTrigger;
+			g_prevRT = a_pad.bRightTrigger;
+
+			const auto now = Clock::now();
+			if (interop::AmfMenuOpen() || interop::TweenMenuOpen()) {
+				// the framework's window (or Tween Menu's menu) has the pad: no wheel rule runs, the read goes on untouched (its gate hides it
+				// from the game); an open ammo wheel closes, a latched wheel lets go
+				WORD untouched = raw;
+				ammo::Rewrite(a_pad, raw, 0, untouched, false, false);
+				a_pad.wButtons = raw;
+				g_latched = false;
+				g_pendingLatch = false;
+				g_suppressDown = false;
+				return;
+			}
+			const menus::Menu menu = menus::Active();
+			TrackMenu(menu);
+			WORD out = raw;
+			Read r{ a_pad, raw, pressed, released, ltPressed, rtPressed, now, menu, out };
+
+			// the ammo wheel (its button in gameplay): while it is open it takes the read (Ammo.cpp)
+			quickkeys::BoostAnimations();
+			wheelname::Tick();   // "Inventory Wheel" / "Magic Wheel" over the wheel on screen
+			magicwheel::Tick();   // the Magic wheel's own widget over the game's wheel; no spells on the inventory wheel
+			const bool ammoTook = ammo::Rewrite(a_pad, raw, pressed, out, menu == menus::Menu::kNone && !menus::AnyOpen(), quickkeys::RadialOpen());
+
+			if (ammoTook) {
+				// the D-pad, A, B and the right stick were the ammo wheel's
+			} else if (interop::ControllerKeyboardOpen()) {
+				// the search keyboard has the pad: the menu rules stand aside
+			} else if (menu != menus::Menu::kNone) {
+				MenuRules(r);
+			} else {
+				ContainerRules(r);
+				GameplayRules(r);
+			}
+
+			SwallowHeldButtons(r);
+			ForceClose(r);
+			HoldWhileClosing(r);
 			wheels::Tick((raw & XINPUT_GAMEPAD_A) != 0);
 
 			// synthetic presses
