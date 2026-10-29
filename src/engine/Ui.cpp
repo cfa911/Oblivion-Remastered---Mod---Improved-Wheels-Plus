@@ -139,23 +139,7 @@ namespace ui
 		lastScan = now;
 		// the game's controller is a SUBCLASS (VAltarPlayerController): reflect::Instances matches one class exactly and so
 		// never found it - the ammo wheel was never built ("cannot be built yet", every press, 2026-09-29 23:55 on)
-		auto* cls = Class(L"/Script/Engine.PlayerController");
-		auto* arr = UE::FUObjectArray::GetSingleton();
-		UE::UObject* found = nullptr;
-		if (cls && arr) {
-			arr->LockInternalArray();
-			const std::int32_t n = arr->GetObjectArrayNum();
-			for (std::int32_t i = 0; i < n && !found; ++i) {
-				auto* item = arr->IndexToObject(i);
-				auto* o = item ? reinterpret_cast<UE::UObject*>(item->object) : nullptr;
-				auto* oc = o ? o->GetClass() : nullptr;
-				// not a class default object, not an archetype
-				if (oc && oc->IsChildOf(cls) && (static_cast<std::int32_t>(o->objectFlags) & 0x30) == 0) {
-					found = o;
-				}
-			}
-			arr->UnlockInternalArray();
-		}
+		auto* found = reflect::FirstOf(Class(L"/Script/Engine.PlayerController"));
 		cached = found ? reflect::Hold(found) : reflect::Handle{};
 		return found;
 	}
@@ -348,6 +332,22 @@ namespace ui
 		c.Set("ParameterName", UE::FName(a_name, UE::EFindName::Add));
 		c.Set("Value", a_texture);
 		c.Run();
+	}
+
+	UE::UObject* MakeMaterialInstance(UE::UObject* a_parent)
+	{
+		static auto* mlib = Class(L"/Script/Engine.KismetMaterialLibrary");
+		Call c(mlib ? mlib->GetDefaultObject(false) : nullptr, L"CreateDynamicMaterialInstance");
+		c.Set("WorldContextObject", PlayerController());
+		c.Set("Parent", a_parent);
+		return c.RunGuarded() ? c.Get<UE::UObject*>("ReturnValue") : nullptr;
+	}
+
+	bool SetBrushMaterial(UE::UObject* a_image, UE::UObject* a_material)
+	{
+		Call b(a_image, L"SetBrushFromMaterial");
+		b.Set("Material", a_material);
+		return b.Run();
 	}
 }
 

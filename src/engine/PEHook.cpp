@@ -55,6 +55,10 @@ namespace pe
 		}
 	}
 
+	std::string NameOf(const UE::FName& a_name) { return Utf8(a_name.ToString()); }
+
+	std::string NameOf(UE::UObject* a_object) { return a_object ? NameOf(a_object->GetFName()) : std::string("none"); }
+
 	std::string Utf8(const UE::FString& a_s)
 	{
 		const wchar_t* d = UE::GetData(a_s);

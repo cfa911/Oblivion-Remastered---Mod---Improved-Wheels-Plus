@@ -62,9 +62,9 @@ Tests: `xmake build Tests && xmake run Tests`, and `python tests/iwp0NN_*.py` (e
 |---|---|
 | `core/` | plugin entry (`main.cpp`), precompiled header, logger, settings, text and atomic-file helpers |
 | `engine/` | Unreal plumbing: ProcessEvent hook, reflection, widget building, text blocks, the TES-thread hook, pattern scan, session token |
-| `game/` | what the game is doing: open menus, the native quick-key radial, the player's inventory, inventory and magic list rows |
-| `input/` | controller (`Pad`), keyboard and mouse, the Controls page row, radial and close helpers |
-| `wheels/` | the wheel model: slots, assignment, use, saving (`.iwp` files) |
+| `game/` | what the game is doing: open menus, the native quick-key radial, the player's inventory, inventory and magic list rows, the character's session, the texts the player typed (`TypedNames`) and the names learned for spells the player made (`SpellNames`, the `.spells` file) |
+| `input/` | controller (`Pad`), keyboard and mouse, the Controls page row, the wheel's geometry (`RadialSelection`), what other plugins say (`Interop`) |
+| `wheels/` | the wheel model, one concern a file: `Model` (the `.iwp` file, what may go where), `Assign` (entries added, removed, moved), `Use` (using a slot, the repair hammer), `HudIcon`, and `Wheels` (the interface); `WheelsInternal.h` is what they share |
 | `overlays/` | what is drawn over the game's wheel: Magic wheel, ring picture, slot counters, wheel name |
 | `ammo/` | the Ammo wheel |
 | `favourites/` | the star column in the Inventory and Magic lists |

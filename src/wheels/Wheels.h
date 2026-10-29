@@ -65,7 +65,6 @@ namespace wheels
 	// the Ammo wheel's eight slots, the top one first: the arrows the player carries (0 = empty, or not carried)
 	std::array<std::uint32_t, 8> AmmoSlots();
 	int                          AmmoSlotAtRing(int a_ring);        // the radial's Ammo view: the Ammo slot whose arrows sit at that ring position (0-7), -1 when none
-	std::array<std::uint32_t, 8> AmmoRingSlots();                   // ... exact saved ring positions, with all eight cells available
 	Wheel AssignmentWheel(menus::Menu a_menu);   // Inventory arrows use Ammo; other rows use Equipment
 	void AssignPressed(menus::Menu a_menu, int a_slot);   // A with a menu's panel showing (a_slot = pointed key, -1 none)
 	void Tick(bool a_assignHeld);              // every controller read: settles a pending Equipment assign
@@ -79,7 +78,6 @@ namespace wheels
 	// radial has closed (on nothing). The result is read back from the item and logged ("USE result")
 	void QuickUse(int a_slot);   // active wheel slot directly, no radial/input simulation
 	void UseNow(int a_slot, const char* a_how, bool a_stayOpen = false);   // a_stayOpen: a consumable is used at once and the radial stays up
-	std::string LastUse();                     // what the last RB / A use did (the iwm.pad state)
 	void UseMagic(int a_slot);                 // the radial closed on a slot of the Magic wheel: that spell becomes the one cast
 	// While the radial closes on a Magic or Ammo slot, the game's own close would use the item on ITS key of that slot (a potion on
 	// the Equipment wheel's slot 3 as a spell of slot 3 was chosen): the key is taken off that item until the radial has closed.
@@ -93,9 +91,4 @@ namespace wheels
 	void PanelHidden();
 	void RadialShown();
 	void RadialHidden();
-
-	std::string Status();
-
-	// for the iwm.pad tool: each slot's entries by name, the active one marked with '*' (game thread)
-	std::array<std::string, 8> Describe(Wheel a_wheel);
 }

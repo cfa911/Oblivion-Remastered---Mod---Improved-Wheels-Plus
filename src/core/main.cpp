@@ -8,6 +8,7 @@
 #include "input/Pad.h"
 #include "game/QuickKeys.h"
 #include "game/Rows.h"
+#include "game/SessionContext.h"
 #include "core/Settings.h"
 #include "slowtime/SlowTime.h"
 #include "engine/TesThread.h"
@@ -91,6 +92,7 @@ OBSE_PLUGIN_LOAD(const OBSE::LoadInterface* a_obse)
 {
 	OBSE::Init(a_obse);
 	settings::Load();
+	testhread::SetSessionSource(&sessioncontext::Current);
 	{
 		const auto level = static_cast<spdlog::level::level_enum>(std::clamp(settings::Get().logLevel, 0, 4));
 		logger::set_level(level, level);

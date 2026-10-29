@@ -31,6 +31,9 @@ int main()
 
 	// Wide: UTF-8 in, UTF-16 out (the bytes are written as escapes so the source file's encoding cannot matter)
 	Check(Wide("") == L"", "Wide: empty");
+	Check(textutil::Lower("") == "", "Lower: empty");
+	Check(textutil::Lower("/Game/Art/UI/Icons/Magic/T_Fire") == "/game/art/ui/icons/magic/t_fire", "Lower: ASCII letters, the rest kept");
+	Check(textutil::Lower("GrÃ¶Ã") == "grÃ¶Ã", "Lower: UTF-8 bytes above 0x7F unchanged");
 	Check(Wide("Greater Heal") == L"Greater Heal", "Wide: ASCII unchanged");
 	Check(Wide("Gr\xC3\xB6\xC3\x9F" "ere") == L"Gr\u00F6\u00DF" L"ere", "Wide: o-umlaut and sz (Groessere)");
 	Check(Wide("\xC3\x84\xC3\x96\xC3\x9C\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x9F") == L"\u00C4\u00D6\u00DC\u00E4\u00F6\u00FC\u00DF", "Wide: all German letters");

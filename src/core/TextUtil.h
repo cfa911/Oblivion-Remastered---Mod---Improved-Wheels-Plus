@@ -27,6 +27,15 @@ namespace textutil
 		return out;
 	}
 
+	// ASCII letters to lower case; every other byte (UTF-8 included) as it is
+	inline std::string Lower(std::string a_s)
+	{
+		for (auto& c : a_s) {
+			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		}
+		return a_s;
+	}
+
 	// The remaster's texture for a form's icon path (the primary session's reads, 2026-09-30: Arrow1Iron's icon is
 	// "Weapons\IronArrow.dds", and the paks hold /Game/Art/UI/Icons/Dynamic_Icons/menus/icons/weapons/T_ironarrow -
 	// the folder in lower case, "T_" and the lower-case stem; the HUD's own textures follow the same rule). Empty when no stem.

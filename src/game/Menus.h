@@ -21,6 +21,4 @@ namespace menus
 	std::uint64_t MsSinceClosed();   // milliseconds since the Inventory or the Magic menu last deactivated (a huge number if never): the game still reports menu mode while a menu closes
 	bool AnyOpen();    // the game is in menu mode (any menu: also containers and barter, which Active() reports as kNone)
 	const char* Name(Menu a_menu);
-	UE::UClass* ClassOf(Menu a_menu);   // the menu widget's class, once it has loaded (nullptr before)
-	UE::UObject* Widget(Menu a_menu);   // the menu's widget (the instance that was activated last), nullptr when there is none
 }

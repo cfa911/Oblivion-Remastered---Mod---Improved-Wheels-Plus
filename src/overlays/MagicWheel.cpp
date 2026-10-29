@@ -1,8 +1,9 @@
 #include "overlays/MagicWheel.h"
 
+#include "core/TextUtil.h"
+
 #include "game/Inventory.h"
 #include "game/Menus.h"
-#include "input/Pad.h"
 #include "engine/PEHook.h"
 #include "game/QuickKeys.h"
 #include "engine/Reflect.h"
@@ -16,7 +17,6 @@ namespace magicwheel
 {
 	namespace
 	{
-		constexpr const wchar_t* kWheelMic = L"/Game/UI/Materials/QuickKeys/MIC_UI_QuickKeys.MIC_UI_QuickKeys";
 
 		// ours
 		reflect::Handle g_root, g_img, g_imgSlot, g_mid;
@@ -37,24 +37,20 @@ namespace magicwheel
 		// the inventory wheel: keys that hold a spell
 		std::array<bool, 8> g_spellKey{};
 		ULONGLONG           g_nextEquip = 0;
-		std::string         g_status = "not shown yet";
 
-		std::string NameOf(UE::UObject* a_o) { return a_o ? pe::Utf8(a_o->GetFName().ToString()) : std::string("none"); }
 
 		// the game's wheel picture inside the visible wheel widget: quickKeys_material > Image (the primary session's
 		// reads, 2026-09-30: ...WBP_ModernMenu_QuickKeys.WidgetTree.quickKeys_material.WidgetTree.Image, drawn by a
 		// MaterialInstanceDynamic of MIC_UI_QuickKeys)
 		UE::UObject* GameImage(UE::UObject* a_wheel)
 		{
-			auto* material = ui::ChildNamed(a_wheel, L"quickKeys_material");
-			if (!material) material = ui::FindInTree(a_wheel, "quickKeys_material");
-			auto* img = material ? ui::ChildNamed(material, L"Image") : nullptr;
-			if (!img && material) img = ui::FindInTree(material, "Image");
+			UE::UObject* material = nullptr;
+			auto*        img = quickkeys::WheelImage(a_wheel, &material);
 			static bool logged = false;
 			if (!logged) {
 				logged = true;
-				logger::info("magic wheel: the game's wheel picture is {} > {} (drawn by {})", material ? NameOf(material) : "NOT FOUND (quickKeys_material)",
-					img ? NameOf(img) : "NOT FOUND (Image)", NameOf(img ? ui::BrushResource(img) : nullptr));
+				logger::info("magic wheel: the game's wheel picture is {} > {} (drawn by {})", material ? pe::NameOf(material) : "NOT FOUND (quickKeys_material)",
+					img ? pe::NameOf(img) : "NOT FOUND (Image)", pe::NameOf(img ? ui::BrushResource(img) : nullptr));
 			}
 			return img;
 		}
@@ -106,27 +102,21 @@ namespace magicwheel
 			auto* img = reflect::Get(g_img);
 			if (!img) return nullptr;
 			auto* parent = a_gameMid ? ParentOf(a_gameMid) : nullptr;
-			if (!parent) parent = ui::Load(kWheelMic);
+			if (!parent) parent = ui::Load(quickkeys::kWheelMaterial);
 			auto* mid = reflect::Get(g_mid);
 			if (mid && parent == g_midParent && ui::BrushResource(img) == mid) return mid;
-			static auto* mlib = ui::Class(L"/Script/Engine.KismetMaterialLibrary");
-			ui::Call c(mlib ? mlib->GetDefaultObject(false) : nullptr, L"CreateDynamicMaterialInstance");
-			c.Set("WorldContextObject", ui::PlayerController());
-			c.Set("Parent", parent);
-			mid = parent && c.RunGuarded() ? c.Get<UE::UObject*>("ReturnValue") : nullptr;
+			mid = parent ? ui::MakeMaterialInstance(parent) : nullptr;
 			if (!mid) {
-				logger::warn("magic wheel: its material instance could not be made (parent {})", NameOf(parent));
+				logger::warn("magic wheel: its material instance could not be made (parent {})", pe::NameOf(parent));
 				return nullptr;
 			}
-			ui::Call b(img, L"SetBrushFromMaterial");
-			b.Set("Material", mid);
-			b.Run();
+			ui::SetBrushMaterial(img, mid);
 			g_mid = reflect::Hold(mid);
 			g_midParent = parent;
 			g_tex.fill(nullptr);
 			g_op.fill(-1.0f);
 			g_mirrored.clear();
-			logger::info("magic wheel: its material is an instance of {}", NameOf(parent));
+			logger::info("magic wheel: its material is an instance of {}", pe::NameOf(parent));
 			return mid;
 		}
 
@@ -182,7 +172,6 @@ namespace magicwheel
 			ui::Visible(reflect::Get(g_root), false);
 			RestoreGame();
 			g_shown = false;
-			g_status = std::string("hidden - ") + a_why;
 			logger::info("magic wheel: hidden ({})", a_why);
 		}
 
@@ -240,7 +229,7 @@ namespace magicwheel
 				g_tex.fill(nullptr);
 				g_op.fill(-1.0f);
 			}
-			const std::array<std::uint32_t, 8> spells = a_mode == 1 ? (wheels::Ready() ? inventory::Keys() : inventory::KeyMap{}) :a_mode == 2 ? wheels::AmmoRingSlots() : wheels::MagicSlots();
+			const std::array<std::uint32_t, 8> spells = a_mode == 1 ? (wheels::Ready() ? inventory::Keys() : inventory::KeyMap{}) :a_mode == 2 ? wheels::AmmoSlots() : wheels::MagicSlots();
 			for (int k = 0; k < 8; ++k) {
 				const auto here = spells[static_cast<std::size_t>(k)];
 				auto* tex = here ? (a_mode != 0 ? rows::ItemIcon(here) : rows::SpellIcon(here)) : nullptr;
@@ -262,8 +251,7 @@ namespace magicwheel
 				g_shown = true;
 				int filled = 0;
 				for (const auto s : spells) filled += s ? 1 : 0;
-				g_status = std::format("shown over {} ({} of 8 slots hold a spell)", NameOf(gameImg), filled);
-				logger::info("magic wheel: {}", g_status);
+				logger::info("magic wheel: shown over {} ({} of 8 slots hold a spell)", pe::NameOf(gameImg), filled);
 			}
 		}
 
@@ -277,8 +265,7 @@ namespace magicwheel
 			static std::unordered_map<UE::UObject*, bool> s_known;
 			if (!a_icon) return false;
 			if (const auto it = s_known.find(a_icon); it != s_known.end()) return it->second;
-			std::string path = pe::Utf8(a_icon->GetFullName());
-			for (auto& c : path) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+			const std::string path = textutil::Lower(pe::Utf8(a_icon->GetFullName()));
 			const bool spell = path.find("/icons/magic/") != std::string::npos;
 			s_known[a_icon] = spell;
 			return spell;
@@ -339,7 +326,7 @@ namespace magicwheel
 		if (messageUp) slotcounts::Hide();
 		const auto menu = menus::Active();
 		const bool radial = quickkeys::RadialOpen();
-		const bool magic = (radial && wheels::Active() == wheels::Wheel::kMagic) || (menu == menus::Menu::kMagic && pad::MagicPanelUp());
+		const bool magic = (radial && wheels::Active() == wheels::Wheel::kMagic) || (menu == menus::Menu::kMagic && quickkeys::MagicPanelUp());
 		const bool equip = (radial && wheels::Active() == wheels::Wheel::kEquipment) || (menu == menus::Menu::kInventory && quickkeys::PanelOpen());
 		auto* wheel = magic || equip || (radial && wheels::Active() == wheels::Wheel::kAmmo) ? quickkeys::VisibleWheel() : nullptr;
 		const bool equipPanel = !magic && menu == menus::Menu::kInventory && quickkeys::PanelOpen();   // the Inventory's assign panel
@@ -379,10 +366,4 @@ namespace magicwheel
 		return a_slot >= 0 && a_slot < 8 && g_spellKey[static_cast<std::size_t>(a_slot)];
 	}
 
-	std::string Status()
-	{
-		int spells = 0;
-		for (const bool s : g_spellKey) spells += s ? 1 : 0;
-		return std::format("{}; {} of the game's keys hold a spell (drawn empty on the inventory wheel)", g_status, spells);
-	}
 }

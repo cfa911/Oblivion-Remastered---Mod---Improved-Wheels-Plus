@@ -36,24 +36,6 @@ namespace quickkeys
 		std::atomic<int> g_frame{ 0 };
 		std::atomic<ULONGLONG> g_boostUntil{ 0 };   // the wheel changed visibility: its animations are played faster until then
 
-		std::string Utf8(const UE::FString& a_s)
-		{
-			const wchar_t* d = UE::GetData(a_s);
-			const int      n = UE::GetNum(a_s);
-			if (!d || n <= 0) {
-				return {};
-			}
-			const int len = d[n - 1] == L'\0' ? n - 1 : n;
-			const int bytes = WideCharToMultiByte(CP_UTF8, 0, d, len, nullptr, 0, nullptr, nullptr);
-			std::string out(bytes > 0 ? static_cast<std::size_t>(bytes) : 0, '\0');
-			if (bytes > 0) {
-				WideCharToMultiByte(CP_UTF8, 0, d, len, out.data(), bytes, nullptr, nullptr);
-			}
-			return out;
-		}
-
-		std::string NameOf(const UE::FName& a_n) { return Utf8(a_n.ToString()); }
-
 		void SetProblem(const std::string& a_why)
 		{
 			std::scoped_lock l(g_statusLock);
@@ -230,7 +212,7 @@ namespace quickkeys
 				return;
 			}
 			g_widgetClass.store(widgetClass, std::memory_order_release);
-			logger::info("quick keys: widget class found ({})", Utf8(widgetClass->GetFullName()));
+			logger::info("quick keys: widget class found ({})", pe::Utf8(widgetClass->GetFullName()));
 		}
 		auto* vmClass = g_viewModelClass.load(std::memory_order_acquire);
 		if (!vmClass) {
@@ -353,14 +335,21 @@ namespace quickkeys
 
 		UE::UObject* WheelMid(UE::UObject* a_wheel)
 		{
-			auto* material = ui::ChildNamed(a_wheel, L"quickKeys_material");
-			if (!material) material = ui::FindInTree(a_wheel, "quickKeys_material");
-			auto* img = material ? ui::ChildNamed(material, L"Image") : nullptr;
-			if (!img && material) img = ui::FindInTree(material, "Image");
+			auto* img = WheelImage(a_wheel);
 			static auto* midClass = ui::Class(L"/Script/Engine.MaterialInstanceDynamic");
 			auto* mid = img ? ui::BrushResource(img) : nullptr;
 			return mid && midClass && mid->GetClass() == midClass ? mid : nullptr;
 		}
+	}
+
+	UE::UObject* WheelImage(UE::UObject* a_wheel, UE::UObject** a_material)
+	{
+		auto* material = a_wheel ? ui::ChildNamed(a_wheel, L"quickKeys_material") : nullptr;
+		if (!material && a_wheel) material = ui::FindInTree(a_wheel, "quickKeys_material");
+		auto* img = material ? ui::ChildNamed(material, L"Image") : nullptr;
+		if (!img && material) img = ui::FindInTree(material, "Image");
+		if (a_material) *a_material = material;
+		return img;
 	}
 
 	void ClearPointer()
@@ -546,6 +535,14 @@ namespace quickkeys
 		std::scoped_lock l(g_statusLock);
 		return g_status.panelOpen;
 	}
+
+	namespace
+	{
+		bool g_magicPanel = false;   // game thread only
+	}
+
+	bool MagicPanelUp() { return g_magicPanel; }
+	void SetMagicPanelUp(bool a_up) { g_magicPanel = a_up; }
 
 	bool AnyWheelVisible() { return VisibleWheel() != nullptr; }
 

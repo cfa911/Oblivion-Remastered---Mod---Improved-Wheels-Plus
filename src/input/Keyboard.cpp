@@ -1,8 +1,9 @@
 #include "input/Keyboard.h"
+#include "input/Interop.h"
+#include "input/RadialSelection.h"
 
 #include "ammo/Ammo.h"
 #include "game/Menus.h"
-#include "input/Pad.h"
 #include "engine/PEHook.h"
 #include "game/QuickKeys.h"
 #include "game/MessageDiscovery.h"
@@ -152,40 +153,16 @@ namespace keyboard
 			return ctx.isBox;
 		}
 
-		// The text boxes only exist when the Inventory Search / Magic Search plugins are loaded (SearchLight's bars are not text boxes).
-		// Without them there is nothing to find and the object array is never walked: the walk builds two name strings per object and
-		// took most of the game thread while the Inventory or Magic menu was open (capture 2026-10-20: 93 % of one core, 40 % of the
-		// samples in SearchBoxFocused).
-		bool SearchPluginLoaded()
-		{
-			static const bool loaded = GetModuleHandleW(L"OblivionInventorySearch.dll") != nullptr || GetModuleHandleW(L"OblivionMagicSearch.dll") != nullptr;
-			return loaded;
-		}
-
-		// SearchLight types into a bar of its own (not a text box the array walk could find) and takes the window's keys itself, but
-		// the keys are still down for GetAsyncKeyState: a digit typed into the bar would assign the highlighted item to that slot, and
-		// a typed R, Z, C or F would press the wheel's virtual buttons. SearchLight says when a bar has the typing (MenuSearch_IsTyping,
-		// the SearchLight release after 1.2.1; an older one has no such export and the answer is no, as before).
-		bool MenusRevampedAnswers(const char* a_export)
-		{
-			const HMODULE m = GetModuleHandleW(L"MenusRevamped.dll");
-			if (!m) return false;
-			const auto fn = reinterpret_cast<bool (*)()>(GetProcAddress(m, a_export));
-			return fn && fn();
-		}
-
-		bool SearchLightTyping() { return MenusRevampedAnswers("MenusRevamped_IsTyping") || MenusRevampedAnswers("MenusRevamped_IsControllerKeyboardOpen"); }
-
 		// the mouse is over a SearchLight bar: a click there is the bar's (it starts the typing), not a click on the wheel's last pointed slot
-		bool SearchLightBarUnderMouse() { return MenusRevampedAnswers("MenusRevamped_CursorOverBar"); }
+		bool SearchLightBarUnderMouse() { return interop::SearchLightCursorOverBar(); }
 
 		// a search box (the Inventory Search / Magic Search plugins') has the keyboard: digits are typing, not slot keys.
 		// The boxes found are kept (as Handles: the slot says whether the object is still the same); the array is walked again only when
 		// no kept box is alive, at most once a second, and once when the open menu changes (each menu builds its own box).
 		bool SearchBoxFocused()
 		{
-			if (SearchLightTyping()) return true;
-			if (!SearchPluginLoaded()) return false;
+			if (interop::SearchLightTyping()) return true;
+			if (!interop::OldSearchPluginsLoaded()) return false;
 			static std::vector<reflect::Handle> s_boxes;
 			static ULONGLONG                    s_scanned = 0;
 			static int                          s_scanMenu = -1;
@@ -292,10 +269,7 @@ namespace keyboard
 		{
 			auto* wheel = quickkeys::VisibleWheel();
 			if (!wheel) return -1;
-			auto* material = ui::ChildNamed(wheel, L"quickKeys_material");
-			if (!material) material = ui::FindInTree(wheel, "quickKeys_material");
-			auto* image = material ? ui::ChildNamed(material, L"Image") : nullptr;
-			if (!image && material) image = ui::FindInTree(material, "Image");
+			auto* image = quickkeys::WheelImage(wheel);
 			double x = 0, y = 0, w = 0, h = 0;
 			if (!image || !ui::Measure(image, x, y, w, h)) return -1;
 			const double half = w * 0.5, cx = x + half, cy = y + h * 0.5;
@@ -303,8 +277,8 @@ namespace keyboard
 			const double ring = settings::Get().display.cellRingPercent / 100.0;
 			double       bestDist = half * settings::Get().display.cellHitPercent / 100.0;   // a cell is about 0.18 of the half-width across; a little more is taken
 			for (int k = 0; k < 8; ++k) {
-				const double ang = k * 45.0 * 3.14159265358979323846 / 180.0;
-				const double px = cx + std::sin(ang) * ring * half, py = cy - std::cos(ang) * ring * half;
+				double px = 0, py = 0;
+				radialselection::CellCentre(k, cx, cy, half, ring, px, py);
 				const double d = std::hypot(mx - px, my - py);
 				if (d < bestDist) bestDist = d, best = k;
 			}
@@ -334,9 +308,10 @@ namespace keyboard
 		// slot N (1 = top, clockwise, 45 degrees apart) as a right-stick deflection
 		void SlotStick(int a_slot, SHORT& a_x, SHORT& a_y)
 		{
-			const double angle = (a_slot - 1) * 45.0 * 3.14159265358979323846 / 180.0;
-			a_x = static_cast<SHORT>(std::lround(std::sin(angle) * 32000.0));
-			a_y = static_cast<SHORT>(std::lround(std::cos(angle) * 32000.0));
+			double dx = 0, dy = 0;
+			radialselection::KeyDirection(a_slot - 1, dx, dy);
+			a_x = static_cast<SHORT>(std::lround(dx * 32000.0));
+			a_y = static_cast<SHORT>(std::lround(dy * 32000.0));
 		}
 
 		// A slot key's script, advanced a read at a time from what the game shows (never blind timing: a stick held toward a slot
@@ -368,7 +343,7 @@ namespace keyboard
 
 		bool PanelUp(menus::Menu a_menu)
 		{
-			return quickkeys::PanelOpen() || (a_menu == menus::Menu::kMagic && pad::MagicPanelUp());
+			return quickkeys::PanelOpen() || (a_menu == menus::Menu::kMagic && quickkeys::MagicPanelUp());
 		}
 
 		// lays the running script over this read; true while one is running

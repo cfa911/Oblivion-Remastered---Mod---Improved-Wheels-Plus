@@ -3,7 +3,6 @@
 
 #include "game/Inventory.h"
 #include "game/Menus.h"
-#include "input/Pad.h"
 #include "game/QuickKeys.h"
 #include "engine/PEHook.h"
 #include "engine/Reflect.h"
@@ -34,31 +33,12 @@ namespace wheelname
 		constexpr float kTitleOutlineGold[4] = { 0.831f, 0.429f, 0.038f, 1.0f };     // the Magic wheel's gold rim, linear
 		constexpr float kTitleOutlineSilver[4] = { 0.610f, 0.644f, 0.730f, 1.0f };   // the Equipment wheel's silver rim, linear
 
-		void White(UE::UObject* a_label)
-{
-			struct SlateColor
-			{
-				float        rgba[4];
-				std::uint8_t rule;
-				std::uint8_t pad[7];
-			} white{ { kTitleInk[0], kTitleInk[1], kTitleInk[2], kTitleInk[3] }, 0, {} };   // the wheel's gold, not white
-			ui::CallFirst(a_label, L"SetColor", &white, sizeof(white));
-			ui::CallFirst(a_label, L"SetColorAndOpacity", &white, sizeof(white));
-			const float shadow[4] = { 0.0f, 0.0f, 0.0f, 0.55f };
-			ui::CallFirst(a_label, L"SetShadowColorAndOpacity", shadow, sizeof(shadow));
-			ui::Vec2(a_label, L"SetShadowOffset", 1.0, 1.0);
-		}
-
-		void Ink(UE::UObject* a_label, const float (&a_ink)[4])
+		// the title's own look: the wheel's gold with a soft shadow
+		void TitleInk(UE::UObject* a_label)
 		{
-			struct SlateColor
-			{
-				float        rgba[4];
-				std::uint8_t rule;
-				std::uint8_t pad[7];
-			} c{ { a_ink[0], a_ink[1], a_ink[2], a_ink[3] }, 0, {} };
-			ui::CallFirst(a_label, L"SetColor", &c, sizeof(c));
-			ui::CallFirst(a_label, L"SetColorAndOpacity", &c, sizeof(c));
+			constexpr float kSoftShadow[4] = { 0.0f, 0.0f, 0.0f, 0.55f };
+			uix::Ink(a_label, kTitleInk);
+			uix::Shadow(a_label, kSoftShadow, 1.0);
 		}
 
 		bool Build()
@@ -83,9 +63,9 @@ namespace wheelname
 			ui::Call vp(root, L"AddToViewport");
 			vp.Set<std::int32_t>("ZOrder", 60);   // above the menus' own layers
 			vp.Run();
-			White(label);
+			TitleInk(label);
 			uix::ApplyBoldFont(label, 30.0, kTitleOutline, 2);   // the owner, 2026-10-22: one pixel thicker
-ui::Visible(root, false);
+			ui::Visible(root, false);
 			g_root = reflect::Hold(root);
 			g_label = reflect::Hold(label);
 			g_slot = reflect::Hold(slot);
@@ -98,49 +78,9 @@ ui::Visible(root, false);
 
 		void SetText(UE::UObject* a_label, const std::string& a_text)
 		{
-			auto* fn = a_label->FindFunction(UE::FName(L"SetText", UE::EFindName::Find));
-			const auto params = fn ? reflect::Fields(reinterpret_cast<UE::UStruct*>(fn)) : std::vector<std::pair<std::string, std::int32_t>>{};
-			if (params.empty()) return;
-			std::vector<std::uint8_t> buf(static_cast<std::size_t>(std::max(reinterpret_cast<UE::UStruct*>(fn)->propertiesSize, 0)) + 16, 0);
-			const std::wstring w = pe::Wide(a_text);
-			auto* text = new (buf.data() + params.front().second) UE::FText(UE::FText::AsCultureInvariant(UE::FString(w.c_str())));
-			a_label->ProcessEvent(fn, buf.data());
-			text->~FText();
-			White(a_label);
+			if (!uix::SetText(a_label, a_text)) return;
+			TitleInk(a_label);
 			uix::ApplyBoldFont(a_label, 0, kTitleOutline, 2);
-		}
-
-		// the game's centre text set to a name: a string-table key (LOC_FN_...) through the game's own table, as the UI shows
-		// it; anything else as it is
-		void SetDetails(UE::UObject* a_label, const std::string& a_text)
-		{
-			auto* fn = a_label->FindFunction(UE::FName(L"SetText", UE::EFindName::Find));
-			const auto params = fn ? reflect::Fields(reinterpret_cast<UE::UStruct*>(fn)) : std::vector<std::pair<std::string, std::int32_t>>{};
-			if (params.empty()) return;
-			const std::wstring w = pe::Wide(a_text);
-			std::vector<std::uint8_t> buf(static_cast<std::size_t>(std::max(reinterpret_cast<UE::UStruct*>(fn)->propertiesSize, 0)) + 16, 0);
-			UE::FText* text = nullptr;
-			if (a_text.starts_with("LOC_")) {
-				static auto* lib = ui::Class(L"/Script/Engine.KismetTextLibrary");
-				ui::Call t(lib ? lib->GetDefaultObject(false) : nullptr, L"TextFromStringTable");
-				void* id = t.At("TableId");
-				void* key = t.At("Key");
-				void* ret = t.At("ReturnValue");
-				if (id && key && ret) {
-					new (id) UE::FName(kFullNames, UE::EFindName::Add);
-					auto* k = new (key) UE::FString(w.c_str());
-					t.Run();
-					auto* got = static_cast<UE::FText*>(ret);
-					text = new (buf.data() + params.front().second) UE::FText(*got);
-					got->~FText();
-					k->~FString();
-				}
-			}
-			if (!text) {
-				text = new (buf.data() + params.front().second) UE::FText(UE::FText::AsCultureInvariant(UE::FString(w.c_str())));
-			}
-			a_label->ProcessEvent(fn, buf.data());
-			text->~FText();
 		}
 
 		// a string-table key (LOC_FN_...) as the game's table gives it; anything else unchanged
@@ -188,7 +128,7 @@ ui::Visible(root, false);
 			}
 			const int pointed = quickkeys::PointedSlot();   // 1..8, 0 / -1 none
 			// nothing pointed, or an empty slot: blank (the game's own text there is "Shortcut")
-			const auto id = pointed >= 1 && pointed <= 8 ? (a_mode == 1 ? wheels::MagicSlots()[static_cast<std::size_t>(pointed - 1)] :a_mode == 2 ? wheels::AmmoRingSlots()[static_cast<std::size_t>(pointed - 1)] : (wheels::Ready() ? inventory::Keys()[static_cast<std::size_t>(pointed - 1)] : 0u)) : 0u;
+			const auto id = pointed >= 1 && pointed <= 8 ? (a_mode == 1 ? wheels::MagicSlots()[static_cast<std::size_t>(pointed - 1)] :a_mode == 2 ? wheels::AmmoSlots()[static_cast<std::size_t>(pointed - 1)] : (wheels::Ready() ? inventory::Keys()[static_cast<std::size_t>(pointed - 1)] : 0u)) : 0u;
 			std::string text = " ";
 			if (id) {
 				std::string name = a_mode == 1 ? rows::SpellName(id) : inventory::NameOf(id);
@@ -202,7 +142,7 @@ ui::Visible(root, false);
 				slotcounts::SetCentre(text == " " ? std::string() : Resolve(text));
 			} else {
 				slotcounts::SetCentre({});
-				SetDetails(label, text);
+				uix::SetItemName(label, text);
 			}
 		}
 
@@ -269,7 +209,7 @@ ui::Visible(root, false);
 			name = wheels::Active() == wheels::Wheel::kMagic ? "Magic Wheel" : wheels::Active() == wheels::Wheel::kAmmo ? "Ammo Wheel" : "Inventory Wheel";
 		} else if (menu == menus::Menu::kInventory && quickkeys::PanelOpen()) {
 			name = wheels::AssignmentWheel(menu) == wheels::Wheel::kAmmo ? "Ammo Wheel" : "Inventory Wheel";
-		} else if (menu == menus::Menu::kMagic && pad::MagicPanelUp()) {
+		} else if (menu == menus::Menu::kMagic && quickkeys::MagicPanelUp()) {
 			name = "Magic Wheel";
 		}
 		auto* wheel = name ? quickkeys::VisibleWheel() : nullptr;
@@ -293,7 +233,7 @@ ui::Visible(root, false);
 			g_text = name;
 			const auto&            theme = settings::Get().theme;   // INI [Theme]: a wheel switched off keeps the gold title with the black outline
 			const std::string_view title = (std::string_view(name) == "Inventory Wheel" && !theme.inventory) || (std::string_view(name) == "Magic Wheel" && !theme.magic) ? std::string_view("Ammo Wheel") : std::string_view(name);
-			Ink(label, title == "Inventory Wheel" ? kTitleInkRed : title == "Magic Wheel" ? kTitleInkBlue : kTitleInk);   // SetText puts the gold back
+			uix::Ink(label, title == "Inventory Wheel" ? kTitleInkRed : title == "Magic Wheel" ? kTitleInkBlue : kTitleInk);   // SetText puts the gold back
 			uix::ApplyBoldFont(label, 0, title == "Inventory Wheel" ? kTitleOutlineSilver : title == "Magic Wheel" ? kTitleOutlineGold : kTitleOutline, 2);   // the rim's metal round the letters (the owner, 2026-10-22)
 		}
 		const double px = x + w * 0.5, py = y - 6.0;   // centred over the wheel, just above its top

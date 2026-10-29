@@ -202,6 +202,27 @@ namespace reflect
 		return Get(a_handle.ptr, a_handle.index);
 	}
 
+	UE::UObject* FirstOf(UE::UClass* a_class)
+	{
+		auto* arr = UE::FUObjectArray::GetSingleton();
+		UE::UObject* found = nullptr;
+		if (!a_class || !arr) {
+			return found;
+		}
+		arr->LockInternalArray();
+		const std::int32_t n = arr->GetObjectArrayNum();
+		for (std::int32_t i = 0; i < n && !found; ++i) {
+			auto* item = arr->IndexToObject(i);
+			auto* o = item ? reinterpret_cast<UE::UObject*>(item->object) : nullptr;
+			auto* oc = o ? o->GetClass() : nullptr;
+			if (oc && oc->IsChildOf(a_class) && (static_cast<std::int32_t>(o->objectFlags) & kTemplateFlags) == 0) {
+				found = o;
+			}
+		}
+		arr->UnlockInternalArray();
+		return found;
+	}
+
 	std::vector<UE::UObject*> Instances(UE::UClass* a_class)
 	{
 		std::vector<UE::UObject*> out;
@@ -218,7 +239,7 @@ namespace reflect
 			// templates are never the live thing: the class default object, and archetypes - a widget blueprint's
 			// WidgetTree template (WBP_ModernMenu_MagicMenu's Magic_QuickKeys under /Game/...) read as a wheel panel on
 			// screen, so the magic menu's panel "showed" the moment the menu opened (probe A, 2026-10-01)
-			if (o && o->GetClass() == a_class && o != cdo && (static_cast<std::int32_t>(o->objectFlags) & 0x30) == 0) {
+			if (o && o->GetClass() == a_class && o != cdo && (static_cast<std::int32_t>(o->objectFlags) & kTemplateFlags) == 0) {
 				out.push_back(o);
 			}
 		}

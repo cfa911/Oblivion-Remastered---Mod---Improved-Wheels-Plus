@@ -1,4 +1,4 @@
-#include "engine/SessionContext.h"
+#include "game/SessionContext.h"
 #include "game/Inventory.h"
 
 namespace sessioncontext

@@ -32,8 +32,13 @@ namespace reflect
 		return a_base && a_offset >= 0 ? reinterpret_cast<T*>(static_cast<std::uint8_t*>(a_base) + a_offset) : nullptr;
 	}
 
+	// RF_ClassDefaultObject | RF_ArchetypeObject: templates, never the live thing
+	constexpr std::int32_t kTemplateFlags = 0x30;
+
 	// every live instance of a class (never the class default object)
 	std::vector<UE::UObject*> Instances(UE::UClass* a_class);
+	// the first live object of a_class or of a class derived from it (not a template), nullptr when none
+	UE::UObject* FirstOf(UE::UClass* a_class);
 
 	// For an object read THIS frame from a live owner only: it reads a_obj's own index, so a pointer kept from an
 	// earlier frame must never come here (a freed row's index is garbage - the crash of 2026-09-29 09:15, dropping an

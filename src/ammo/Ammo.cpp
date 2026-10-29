@@ -1,8 +1,10 @@
 #include "ammo/Ammo.h"
 #include "ammo/AmmoLayout.h"
+#include "input/RadialSelection.h"
 #include "engine/UiText.h"
 
 #include "game/Inventory.h"
+#include "game/QuickKeys.h"
 #include "engine/PEHook.h"
 #include "engine/Reflect.h"
 #include "game/Rows.h"
@@ -20,10 +22,9 @@ namespace ammo
 	{
 		using Clock = std::chrono::steady_clock;
 		constexpr int    kSlots = 8;
-		constexpr double kStickOn = 0.45;     // the right stick points once it is this far out
-		constexpr double kStickRest = 0.25;   // and is at rest inside this
+		using radialselection::kStickOn;
+		using radialselection::kStickRest;
 		constexpr WORD   kDpad = XINPUT_GAMEPAD_DPAD_UP | XINPUT_GAMEPAD_DPAD_DOWN | XINPUT_GAMEPAD_DPAD_LEFT | XINPUT_GAMEPAD_DPAD_RIGHT;
-		constexpr const wchar_t* kFullNames = L"/Game/Localization/StringTables/ST_FullNames.ST_FullNames";
 		// the main wheel's own slot circle (a gold rim, a dark inside): the texture its material draws each slot with,
 		// found in the paks with uetex (/Game/Art/UI/Modern/HUD/QuickKeys/NewTextures) - the owner, 2026-09-30: "each arrow
 		// should have the same circle art as the main wheel for each arrow slot". The visible circle is 160 of its 256 px.
@@ -44,7 +45,6 @@ namespace ammo
 		// clipped just past the wheel's middle, keeps the left five slots whole: 1 at the top, 8, 7 at the left, 6, 5 at the
 		// bottom (slot n sits 45 * (n - 1) degrees clockwise from the top). The arrows go into those slots' textures, the
 		// game's own selector points at the chosen one. The drawn circles below stay as the fallback.
-		constexpr const wchar_t* kWheelMic = L"/Game/UI/Materials/QuickKeys/MIC_UI_QuickKeys.MIC_UI_QuickKeys";
 		constexpr double         kOverhang = 0.14;   // past the middle, in wheel radii: the top and bottom slots stay whole
 		constexpr int            kHalfSlots = 5;
 		constexpr float          kHiddenSelector = 2.0f / 8.0f;   // slot 3, straight right: outside the half that shows
@@ -75,52 +75,20 @@ namespace ammo
 			return a;
 		}
 
-		void MidScalar(UE::UObject* a_mid, const wchar_t* a_name, float a_v)
-		{
-			ui::Call c(a_mid, L"SetScalarParameterValue");
-			c.Set("ParameterName", UE::FName(a_name, UE::EFindName::Add));
-			c.Set("Value", a_v);
-			c.Run();
-		}
-
-		void MidTexture(UE::UObject* a_mid, const wchar_t* a_name, UE::UObject* a_tex)
-		{
-			ui::Call c(a_mid, L"SetTextureParameterValue");
-			c.Set("ParameterName", UE::FName(a_name, UE::EFindName::Add));
-			c.Set("Value", a_tex);
-			c.Run();
-		}
 		// A dynamic instance of the wheel's material on a_image: every slot empty, the selector on the hidden half. The
 		// caches of what was written are reset, so the next draw writes everything again.
 		UE::UObject* MakeMid(UE::UObject* a_image, UE::UObject* a_mic)
 		{
-			static auto* mlib = ui::Class(L"/Script/Engine.KismetMaterialLibrary");
-			ui::Call c(mlib ? mlib->GetDefaultObject(false) : nullptr, L"CreateDynamicMaterialInstance");
-			c.Set("WorldContextObject", ui::PlayerController());
-			c.Set("Parent", a_mic);
-			auto* mid = c.RunGuarded() ? c.Get<UE::UObject*>("ReturnValue") : nullptr;
+			auto* mid = ui::MakeMaterialInstance(a_mic);
 			if (!mid || !a_image) return nullptr;
-			ui::Call b(a_image, L"SetBrushFromMaterial");
-			b.Set("Material", mid);
-			if (!b.Run()) return nullptr;
-			for (int k = 1; k <= 8; ++k) MidScalar(mid, (L"ID" + std::to_wstring(k) + L"_Opacity").c_str(), 0.0f);
-			MidScalar(mid, L"SelectorArrowAlpha", 0.0f);
-			MidScalar(mid, L"SelectorRotator", kHiddenSelector);
+			if (!ui::SetBrushMaterial(a_image, mid)) return nullptr;
+			for (int k = 1; k <= 8; ++k) ui::SetMidScalar(mid, (L"ID" + std::to_wstring(k) + L"_Opacity").c_str(), 0.0f);
+			ui::SetMidScalar(mid, L"SelectorArrowAlpha", 0.0f);
+			ui::SetMidScalar(mid, L"SelectorRotator", kHiddenSelector);
 			g_midTex = {};
 			g_midOpacity.fill(-1.0f);
 			g_midPointed = -2;
 			return mid;
-		}
-
-		// what the wheel's image draws now: its brush's ResourceObject (rule 30 - asked of the object, not assumed)
-		UE::UObject* DrawnResource(UE::UObject* a_image)
-		{
-			static auto* brushStruct = reinterpret_cast<UE::UStruct*>(UE::StaticFindObject<UE::UObject>(nullptr, nullptr, L"/Script/SlateCore.SlateBrush"));
-			if (!a_image || !brushStruct) return nullptr;
-			const auto brushOff = reflect::Offset(reinterpret_cast<UE::UStruct*>(a_image->GetClass()), "Brush");
-			const auto resOff = reflect::Offset(brushStruct, "ResourceObject");
-			if (brushOff < 0 || resOff < 0) return nullptr;
-			return *reinterpret_cast<UE::UObject* const*>(reinterpret_cast<const std::uint8_t*>(a_image) + brushOff + resOff);
 		}
 
 		// On every open: the image must still draw OUR instance (the owner, 2026-09-30: no arrows and "box number eight is
@@ -131,9 +99,9 @@ namespace ammo
 			if (!g_material) return;
 			auto* img = reflect::Get(g_wheelImg);
 			auto* mid = reflect::Get(g_mid);
-			auto* drawn = DrawnResource(img);
+			auto* drawn = ui::BrushResource(img);
 			if (img && mid && drawn == mid) return;
-			auto* mic = ui::Load(kWheelMic);
+			auto* mic = ui::Load(quickkeys::kWheelMaterial);
 			auto* made = img && mic ? MakeMid(img, mic) : nullptr;
 			g_mid = made ? reflect::Hold(made) : reflect::Handle{};
 			logger::warn("ammo: the wheel's material instance was {} (its image draws {}) - {}", mid ? "not the one drawn" : "gone",
@@ -156,51 +124,6 @@ namespace ammo
 		std::uint32_t     g_worn = 0;                // the arrows worn when it opened
 		int               g_drawnPointed = -2;
 		WORD              g_swallow = 0;             // buttons the wheel used: the game never sees them, until let go
-		std::string       g_last = "never opened";
-		std::uint32_t     g_opens = 0, g_equips = 0;
-
-		// The TES thread may change the player's item list while the UI thread reads it, and a node freed under a walk faults: the
-		// raw reads sit in helpers of plain pointers (__try cannot unwind C++ objects, C2712) and a fault reads as "nothing".
-		RE::BSSimpleList<RE::ItemChange*>* Items()
-		{
-			__try {
-				auto* player = RE::PlayerCharacter::GetSingleton();
-				auto* changes = player ? player->extra.GetExtraData<RE::ExtraContainerChanges>() : nullptr;
-				return changes && changes->changes ? changes->changes->list : nullptr;
-			} __except (EXCEPTION_EXECUTE_HANDLER) {
-				return nullptr;
-			}
-		}
-
-		bool Worn(RE::ExtraDataList* a_list)
-		{
-			return a_list && (a_list->GetExtraData(RE::EXTRA_DATA_TYPE::Worn) || a_list->GetExtraData(RE::EXTRA_DATA_TYPE::WornLeft));
-		}
-
-		std::uint32_t WornAmmoGuarded(RE::BSSimpleList<RE::ItemChange*>* a_items)
-		{
-			using ItemNode = RE::BSSimpleList<RE::ItemChange*>::Node;
-			using ExtraNode = RE::BSSimpleList<RE::ExtraDataList*>::Node;
-			__try {
-				for (auto* node = reinterpret_cast<ItemNode*>(a_items); node; node = node->next) {
-					RE::ItemChange* item = node->item;
-					if (!item || !item->object || !item->extraData || item->count <= 0 ||
-						item->object->GetFormType() != RE::FormType::Ammo) continue;
-					for (auto* xn = reinterpret_cast<ExtraNode*>(item->extraData); xn; xn = xn->next) {
-						if (Worn(xn->item)) return item->object->GetFormID();
-					}
-				}
-			} __except (EXCEPTION_EXECUTE_HANDLER) {
-			}
-			return 0;
-		}
-
-		// Read currently worn arrows independently of the weapon: Ammo can be preselected with no bow.
-		std::uint32_t WornAmmo()
-		{
-			auto* items = Items();
-			return items ? WornAmmoGuarded(items) : 0;
-		}
 
 		double Radius() { return 317.0 * settings::Get().ammoScalePercent / 100.0; }   // half of the HUD wheel's 634
 
@@ -254,21 +177,6 @@ namespace ammo
 			g_shownIds = {};   // the pictures are drawn again for the new places
 		}
 
-		void White(UE::UObject* a_label)
-		{
-			struct SlateColor
-			{
-				float        rgba[4];
-				std::uint8_t rule;   // ESlateColorStylingMode: 0 = the colour given
-				std::uint8_t pad[7];
-			} white{ { 0.50f, 0.49f, 0.46f, 1.0f }, 0, {} };   // a soft grey (linear), not white: the texts inside the wheels were too bright
-			ui::CallFirst(a_label, L"SetColor", &white, sizeof(white));   // the prefab's own (Tween Menu, BTPS)
-			ui::CallFirst(a_label, L"SetColorAndOpacity", &white, sizeof(white));
-			const float shadow[4] = { 0.0f, 0.0f, 0.0f, 0.0f };   // none, as the other wheels' inside texts
-			ui::CallFirst(a_label, L"SetShadowColorAndOpacity", shadow, sizeof(shadow));
-			ui::Vec2(a_label, L"SetShadowOffset", 0.0, 0.0);
-		}
-
 		bool Build()
 		{
 			const ULONGLONG now = GetTickCount64();
@@ -313,7 +221,7 @@ namespace ammo
 			g_midOpacity.fill(-1.0f);
 			g_midPointed = -2;
 			g_wheelImg = {};
-			if (auto* mic = ui::Load(kWheelMic)) {
+			if (auto* mic = ui::Load(quickkeys::kWheelMaterial)) {
 				UE::UObject* ws = nullptr;
 				auto* wheelImg = ui::AddToCanvas(panel, L"/Script/UMG.Image", (L"IwmAmmoWheel" + n).c_str(), &ws);
 				if (wheelImg && ws) {
@@ -331,7 +239,6 @@ namespace ammo
 				}
 			}
 			logger::info("ammo: the wheel is {}", g_material ? (g_centred ? "the game's full eight-cell Ammo ring" : "the game's own (MIC_UI_QuickKeys), its left half") : "drawn (the game's wheel material could not be instanced)");
-			const double panelW = centred ? R : g_material ? R * (1.0 + kOverhang) : R;   // how far the name sits left of the wheel's edge
 
 			UE::UObject* backSlot = nullptr;
 			if (auto* back = g_material ? nullptr : ui::AddToCanvas(panel, L"/Script/UMG.Image", (L"IwmAmmoBack" + n).c_str(), &backSlot)) {
@@ -411,7 +318,7 @@ namespace ammo
 			vp.Set<std::int32_t>("ZOrder", 20);
 			vp.Run();
 			if (label) {
-				White(label);   // after the Slate widget exists
+				uix::InsideWheelInk(label);   // after the Slate widget exists
 				uix::ApplyFont(label, 25.0 * settings::Get().display.centreTextPercent / 100.0);   // the size the other wheels' centre names have
 			}
 			g_root = reflect::Hold(root);
@@ -433,37 +340,11 @@ namespace ammo
 			if (!label || a_text == g_shownText) {
 				return;
 			}
-			auto* fn = label->FindFunction(UE::FName(L"SetText", UE::EFindName::Find));
-			const auto params = fn ? reflect::Fields(reinterpret_cast<UE::UStruct*>(fn)) : std::vector<std::pair<std::string, std::int32_t>>{};
-			if (params.empty()) {
+			if (!uix::SetItemName(label, a_text)) {
 				return;
 			}
-			const std::wstring w = pe::Wide(a_text);
-			std::vector<std::uint8_t> buf(static_cast<std::size_t>(std::max(reinterpret_cast<UE::UStruct*>(fn)->propertiesSize, 0)) + 16, 0);
-			UE::FText* text = nullptr;
-			if (a_text.starts_with("LOC_")) {
-				static auto* lib = ui::Class(L"/Script/Engine.KismetTextLibrary");
-				ui::Call t(lib ? lib->GetDefaultObject(false) : nullptr, L"TextFromStringTable");
-				void* id = t.At("TableId");
-				void* key = t.At("Key");
-				void* ret = t.At("ReturnValue");
-				if (id && key && ret) {
-					new (id) UE::FName(kFullNames, UE::EFindName::Add);
-					auto* k = new (key) UE::FString(w.c_str());
-					t.Run();
-					auto* got = static_cast<UE::FText*>(ret);
-					text = new (buf.data() + params.front().second) UE::FText(*got);
-					got->~FText();
-					k->~FString();
-				}
-			}
-			if (!text) {
-				text = new (buf.data() + params.front().second) UE::FText(UE::FText::AsCultureInvariant(UE::FString(w.c_str())));
-			}
-			label->ProcessEvent(fn, buf.data());
-			text->~FText();
 			g_shownText = a_text;
-			White(label);
+			uix::InsideWheelInk(label);
 			uix::ApplyFont(label, 0);
 		}
 
@@ -485,12 +366,12 @@ namespace ammo
 			for (int k = 1; k <= 8; ++k) {
 				auto* t = tex[static_cast<std::size_t>(k)];
 				if (t && t != g_midTex[static_cast<std::size_t>(k)]) {
-					MidTexture(mid, (L"ID" + std::to_wstring(k) + L"Texture").c_str(), t);
+					ui::SetMidTexture(mid, (L"ID" + std::to_wstring(k) + L"Texture").c_str(), t);
 					g_midTex[static_cast<std::size_t>(k)] = t;
 				}
 				const float op = t ? 1.0f : 0.0f;
 				if (op != g_midOpacity[static_cast<std::size_t>(k)]) {
-					MidScalar(mid, (L"ID" + std::to_wstring(k) + L"_Opacity").c_str(), op);
+					ui::SetMidScalar(mid, (L"ID" + std::to_wstring(k) + L"_Opacity").c_str(), op);
 					g_midOpacity[static_cast<std::size_t>(k)] = op;
 				}
 			}
@@ -499,8 +380,8 @@ namespace ammo
 				const int slot = g_pointed >= 0 && g_pointed < kSlots ? g_entryId[static_cast<std::size_t>(g_pointed)] : 0;
 				// nothing pointed (or an empty wheel): the selector goes to slot 3, in the clipped-off right half - the
 				// material's own default lights slot 8 (the owner, 2026-09-30: "box number eight is highlighted permanently")
-				MidScalar(mid, L"SelectorRotator", slot >= 1 ? static_cast<float>(slot - 1) / 8.0f : kHiddenSelector);
-				MidScalar(mid, L"SelectorArrowAlpha", slot >= 1 ? 1.0f : 0.0f);
+				ui::SetMidScalar(mid, L"SelectorRotator", slot >= 1 ? static_cast<float>(slot - 1) / 8.0f : kHiddenSelector);
+				ui::SetMidScalar(mid, L"SelectorArrowAlpha", slot >= 1 ? 1.0f : 0.0f);
 				g_midPointed = g_pointed;
 			}
 			SetLabel(g_pointed >= 0 && g_ids[g_pointed] ? inventory::NameOf(g_ids[g_pointed]) : std::string(" "));
@@ -590,42 +471,6 @@ namespace ammo
 			logger::info("ammo: the wheel closed ({})", a_why);
 		}
 
-		void Equip(std::uint32_t a_id)
-		{
-			testhread::Post([a_id]() {
-				auto* player = RE::PlayerCharacter::GetSingleton();
-				auto* items = Items();
-				if (!player || !items) {
-					return;
-				}
-				for (RE::ItemChange* item : *items) {
-					if (item && item->object && item->object->GetFormID() == a_id && item->count > 0 &&
-						item->object->GetFormType() == RE::FormType::Ammo) {
-						// already worn: nothing to do. Every open of the wheel used to equip the stack again (40 equips of the
-						// same iron arrows in one session) and the owner saw the arrows duplicated in the inventory (2026-09-30)
-						bool worn = false;
-						if (item->extraData) {
-							for (RE::ExtraDataList* xl : *item->extraData) {
-								worn = worn || Worn(xl);
-							}
-						}
-						if (worn) {
-							logger::info("ammo: {} are worn already - nothing equipped", inventory::NameOf(a_id));
-							return;
-						}
-						// arrows are worn as the whole stack; no lock (EquipObject's last argument is the console's NoUnequip)
-						// EquipObject may rebuild inventory entries: do not dereference item after it returns.
-						const auto count = item->count;
-						const auto name = inventory::NameOf(a_id);
-						player->EquipObject(item->object, count, nullptr, false, false);
-						logger::info("ammo: {} x{} equipped (TES thread)", name, count);
-						return;
-					}
-				}
-				logger::info("ammo: 0x{:08X} is not carried ammunition - nothing equipped", a_id);
-			});
-		}
-
 		// the next filled slot from a_from (-1 = none yet) in a_dir
 		int Step(int a_from, int a_dir)
 		{
@@ -670,7 +515,7 @@ namespace ammo
 			if (!s.ammoWheel || !button || !a_gameplay || a_radialOpen || !(a_pressed & button)) {
 				return false;
 			}
-			const auto worn = WornAmmo();
+			const auto worn = inventory::WornAmmo();
 			// Keep true saved cell indices in full-ring mode. No arrow type is truncated.
 			const auto slots = wheels::AmmoSlots();
 			const auto layout = ammolayout::Build(slots, s.ammoCentred);
@@ -692,7 +537,6 @@ namespace ammo
 			Layout(g_count);
 			g_open = true;
 			LockLook(true);
-			++g_opens;
 			g_pointed = -1;
 			for (int i = 0; i < kSlots && g_pointed < 0; ++i) {
 				g_pointed = g_ids[i] && g_ids[i] == worn ? i : -1;   // starts on the arrows worn now
@@ -704,7 +548,6 @@ namespace ammo
 			ui::Visible(reflect::Get(g_root), true);
 			g_swallow |= button;
 			a_out &= ~button;
-			g_last = std::format("opened with {} arrow kind(s)", filled);
 			logger::info("ammo: the wheel opened - {} arrow kind(s) on it{}", filled, filled ? "" : " (the favourite button on arrows in the inventory puts them here)");
 			return true;
 		}
@@ -744,17 +587,13 @@ namespace ammo
 		}
 		if (a_pressed & XINPUT_GAMEPAD_B) {
 			g_swallow |= XINPUT_GAMEPAD_B;
-			g_last = "closed with B";
 			Close("B - nothing equipped");
 		} else if (a_pressed & (button | XINPUT_GAMEPAD_A)) {
 			g_swallow |= a_pressed & (button | XINPUT_GAMEPAD_A);
 			if (g_pointed >= 0 && g_ids[g_pointed]) {
-				++g_equips;
-				g_last = std::format("equipped {}", inventory::NameOf(g_ids[g_pointed]));
-				Equip(g_ids[g_pointed]);
+				inventory::EquipAmmo(g_ids[g_pointed]);
 				Close("the pointed arrows go on");
 			} else {
-				g_last = "closed with nothing pointed";
 				Close("nothing pointed");
 			}
 		} else {
@@ -764,11 +603,6 @@ namespace ammo
 	}
 
 	bool Open() { return g_open; }
-
-	void EquipArrows(std::uint32_t a_formID)
-	{
-		Equip(a_formID);
-	}
 
 
 	void PointAt(int a_entry)
@@ -791,23 +625,11 @@ namespace ammo
 		for (int i = 0; i < g_count && i < kSlots; ++i) {
 			const int slot = g_entryId[static_cast<std::size_t>(i)];
 			if (slot < 1 || !g_ids[static_cast<std::size_t>(i)]) continue;
-			const double ang = (slot - 1) * 45.0 * std::numbers::pi / 180.0;
-			const double d = std::hypot(a_x - (cx + std::sin(ang) * ring * half), a_y - (cy - std::cos(ang) * ring * half));
+			double px = 0, py = 0;
+			radialselection::CellCentre(slot - 1, cx, cy, half, ring, px, py);
+			const double d = std::hypot(a_x - px, a_y - py);
 			if (d < bestDist) bestDist = d, best = i;
 		}
 		return best;
-	}
-
-
-	nlohmann::json State()
-	{
-		const auto t = testhread::GetStatus();
-		nlohmann::json ids = nlohmann::json::array();
-		for (const auto id : wheels::AmmoSlots()) {
-			ids.push_back(id ? inventory::NameOf(id) : "");
-		}
-		return { { "open", g_open }, { "pointed", g_pointed }, { "built", Built() }, { "builds", g_builds }, { "opens", g_opens },
-			{ "equips", g_equips }, { "last", g_last }, { "slots", ids }, { "tes_thread", t.installed }, { "tes_thread_calls", t.calls },
-			{ "tes_thread_queued", t.queued } };
 	}
 }

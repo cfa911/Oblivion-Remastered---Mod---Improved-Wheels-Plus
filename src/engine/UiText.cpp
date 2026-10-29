@@ -9,20 +9,33 @@ namespace uix
 	namespace
 	{
 		constexpr const wchar_t* kFontAsset = L"/Game/UI/CommonStyle/Fonts/Font_Robinson_Localized.Font_Robinson_Localized";
+		constexpr const wchar_t* kFullNames = L"/Game/Localization/StringTables/ST_FullNames.ST_FullNames";
 	}
 
-	void Ink(UE::UObject* a_label, const float* a_c)
+	void Ink(UE::UObject* a_label, const float (&a_rgba)[4])
 	{
 		struct SlateColor
 		{
 			float        rgba[4];
-			std::uint8_t rule;
+			std::uint8_t rule;   // ESlateColorStylingMode: 0 = the colour given
 			std::uint8_t pad[7];
-		} ink{ { a_c[0], a_c[1], a_c[2], a_c[3] }, 0, {} };
-		ui::CallFirst(a_label, L"SetColor", &ink, sizeof(ink));
+		} ink{ { a_rgba[0], a_rgba[1], a_rgba[2], a_rgba[3] }, 0, {} };
+		ui::CallFirst(a_label, L"SetColor", &ink, sizeof(ink));   // the prefab's own (Tween Menu, BTPS)
 		ui::CallFirst(a_label, L"SetColorAndOpacity", &ink, sizeof(ink));
-		const float shadow[4] = { 0.0f, 0.0f, 0.0f, 0.0f };   // none
-		ui::CallFirst(a_label, L"SetShadowColorAndOpacity", shadow, sizeof(shadow));
+	}
+
+	void Shadow(UE::UObject* a_label, const float (&a_rgba)[4], double a_offset)
+	{
+		ui::CallFirst(a_label, L"SetShadowColorAndOpacity", a_rgba, sizeof(a_rgba));
+		ui::Vec2(a_label, L"SetShadowOffset", a_offset, a_offset);
+	}
+
+	void InsideWheelInk(UE::UObject* a_label)
+	{
+		constexpr float kSoftGrey[4] = { 0.50f, 0.49f, 0.46f, 1.0f };   // linear
+		constexpr float kNone[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+		Ink(a_label, kSoftGrey);
+		Shadow(a_label, kNone, 0.0);
 	}
 
 	bool SetText(UE::UObject* a_widget, const std::string& a_text)
@@ -38,15 +51,36 @@ namespace uix
 		return true;
 	}
 
-	std::string GetText(UE::UObject* a_widget)
+	bool SetItemName(UE::UObject* a_widget, const std::string& a_text)
 	{
-		ui::Call c(a_widget, L"GetText");
-		void*    ret = c ? c.At("ReturnValue") : nullptr;
-		if (!ret || !c.Run()) return {};
-		auto*       ft = static_cast<UE::FText*>(ret);
-		std::string out = reflect::Text(*ft);
-		ft->~FText();
-		return out;
+		auto*      fn = a_widget ? a_widget->FindFunction(UE::FName(L"SetText", UE::EFindName::Find)) : nullptr;
+		const auto params = fn ? reflect::Fields(reinterpret_cast<UE::UStruct*>(fn)) : std::vector<std::pair<std::string, std::int32_t>>{};
+		if (params.empty()) return false;
+		const std::wstring w = pe::Wide(a_text);
+		std::vector<std::uint8_t> buf(static_cast<std::size_t>(std::max(reinterpret_cast<UE::UStruct*>(fn)->propertiesSize, 0)) + 16, 0);
+		UE::FText* text = nullptr;
+		if (a_text.starts_with("LOC_")) {
+			static auto* lib = ui::Class(L"/Script/Engine.KismetTextLibrary");
+			ui::Call t(lib ? lib->GetDefaultObject(false) : nullptr, L"TextFromStringTable");
+			void* id = t.At("TableId");
+			void* key = t.At("Key");
+			void* ret = t.At("ReturnValue");
+			if (id && key && ret) {
+				new (id) UE::FName(kFullNames, UE::EFindName::Add);
+				auto* k = new (key) UE::FString(w.c_str());
+				t.Run();
+				auto* got = static_cast<UE::FText*>(ret);
+				text = new (buf.data() + params.front().second) UE::FText(*got);
+				got->~FText();
+				k->~FString();
+			}
+		}
+		if (!text) {
+			text = new (buf.data() + params.front().second) UE::FText(UE::FText::AsCultureInvariant(UE::FString(w.c_str())));
+		}
+		a_widget->ProcessEvent(fn, buf.data());
+		text->~FText();
+		return true;
 	}
 
 	namespace
@@ -99,9 +133,4 @@ namespace uix
 	}
 
 
-	bool ApplyPrefabFont(UE::UObject* a_label)
-	{
-		auto* inner = a_label ? ui::FindInTree(a_label, "text_block") : nullptr;
-		return inner && ApplyFont(inner, 0);
-	}
 }

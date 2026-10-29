@@ -15,5 +15,4 @@
 namespace favourites
 {
 	void Tick();   // every frame (the game thread)
-	std::string Status();
 }

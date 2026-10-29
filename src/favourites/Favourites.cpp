@@ -398,5 +398,4 @@ namespace favourites
 		}
 	}
 
-	std::string Status() { return g_status; }
 }

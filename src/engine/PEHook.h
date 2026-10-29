@@ -23,6 +23,8 @@ namespace pe
 	std::string FunctionName(UE::UFunction* a_fn);
 
 	std::string Utf8(const UE::FString& a_s);
+	std::string NameOf(const UE::FName& a_name);   // UTF-8
+	std::string NameOf(UE::UObject* a_object);     // its object name, "none" for nullptr
 
 	// UTF-8 to UTF-16 (a name with umlauts or an sz must not be widened byte by byte)
 	std::wstring Wide(const std::string& a_s);

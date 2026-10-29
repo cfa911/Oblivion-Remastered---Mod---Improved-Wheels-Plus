@@ -40,32 +40,10 @@ namespace slotcounts
 		wheels::Wheel g_wheel = wheels::Wheel::kEquipment;
 		double    g_x = -1e9, g_y = -1e9, g_w = -1;
 
-		void White(UE::UObject* a_label)
-		{
-			struct SlateColor
-			{
-				float        rgba[4];
-				std::uint8_t rule;
-				std::uint8_t pad[7];
-			} white{ { 0.50f, 0.49f, 0.46f, 1.0f }, 0, {} };   // a soft grey (linear), not white: the texts inside the wheels were too bright
-			ui::CallFirst(a_label, L"SetColor", &white, sizeof(white));
-			ui::CallFirst(a_label, L"SetColorAndOpacity", &white, sizeof(white));
-			const float shadow[4] = { 0.0f, 0.0f, 0.0f, 0.0f };   // none: the texts inside the wheels carry no shadow
-			ui::CallFirst(a_label, L"SetShadowColorAndOpacity", shadow, sizeof(shadow));
-			ui::Vec2(a_label, L"SetShadowOffset", 0.0, 0.0);
-		}
-
 		void SetText(UE::UObject* a_label, const std::string& a_text)
 		{
-			auto* fn = a_label->FindFunction(UE::FName(L"SetText", UE::EFindName::Find));
-			const auto params = fn ? reflect::Fields(reinterpret_cast<UE::UStruct*>(fn)) : std::vector<std::pair<std::string, std::int32_t>>{};
-			if (params.empty()) return;
-			std::vector<std::uint8_t> buf(static_cast<std::size_t>(std::max(reinterpret_cast<UE::UStruct*>(fn)->propertiesSize, 0)) + 16, 0);
-			const std::wstring w = pe::Wide(a_text);
-			auto* text = new (buf.data() + params.front().second) UE::FText(UE::FText::AsCultureInvariant(UE::FString(w.c_str())));
-			a_label->ProcessEvent(fn, buf.data());
-			text->~FText();
-			White(a_label);
+			if (!uix::SetText(a_label, a_text)) return;
+			uix::InsideWheelInk(a_label);
 			uix::ApplyFont(a_label, 0);   // the game's UI font, as everywhere on the wheels (the size it was given)
 		}
 
@@ -115,12 +93,12 @@ namespace slotcounts
 			vp.Set<std::int32_t>("ZOrder", 61);   // over the wheel and its name
 			vp.Run();
 			for (auto& h : g_label) {   // every text on the wheels: the game's UI font, white with a shadow; the sizes are the base the INI percentages scale
-				White(reflect::Get(h));
+				uix::InsideWheelInk(reflect::Get(h));
 				uix::ApplyFont(reflect::Get(h), 25.0);
 			}
 			for (auto& h : g_centre) {
 				if (auto* c = reflect::Get(h)) {
-					White(c);
+					uix::InsideWheelInk(c);
 					uix::ApplyFont(c, 25.0);
 				}
 			}
