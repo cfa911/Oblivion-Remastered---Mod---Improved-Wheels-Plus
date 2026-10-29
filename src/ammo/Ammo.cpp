@@ -23,7 +23,6 @@ namespace ammo
 		constexpr double kStickOn = 0.45;     // the right stick points once it is this far out
 		constexpr double kStickRest = 0.25;   // and is at rest inside this
 		constexpr WORD   kDpad = XINPUT_GAMEPAD_DPAD_UP | XINPUT_GAMEPAD_DPAD_DOWN | XINPUT_GAMEPAD_DPAD_LEFT | XINPUT_GAMEPAD_DPAD_RIGHT;
-		constexpr const wchar_t* kFullNames = L"/Game/Localization/StringTables/ST_FullNames.ST_FullNames";
 		// the main wheel's own slot circle (a gold rim, a dark inside): the texture its material draws each slot with,
 		// found in the paks with uetex (/Game/Art/UI/Modern/HUD/QuickKeys/NewTextures) - the owner, 2026-09-30: "each arrow
 		// should have the same circle art as the main wheel for each arrow slot". The visible circle is 160 of its 256 px.
@@ -209,21 +208,6 @@ namespace ammo
 			g_shownIds = {};   // the pictures are drawn again for the new places
 		}
 
-		void White(UE::UObject* a_label)
-		{
-			struct SlateColor
-			{
-				float        rgba[4];
-				std::uint8_t rule;   // ESlateColorStylingMode: 0 = the colour given
-				std::uint8_t pad[7];
-			} white{ { 0.50f, 0.49f, 0.46f, 1.0f }, 0, {} };   // a soft grey (linear), not white: the texts inside the wheels were too bright
-			ui::CallFirst(a_label, L"SetColor", &white, sizeof(white));   // the prefab's own (Tween Menu, BTPS)
-			ui::CallFirst(a_label, L"SetColorAndOpacity", &white, sizeof(white));
-			const float shadow[4] = { 0.0f, 0.0f, 0.0f, 0.0f };   // none, as the other wheels' inside texts
-			ui::CallFirst(a_label, L"SetShadowColorAndOpacity", shadow, sizeof(shadow));
-			ui::Vec2(a_label, L"SetShadowOffset", 0.0, 0.0);
-		}
-
 		bool Build()
 		{
 			const ULONGLONG now = GetTickCount64();
@@ -366,7 +350,7 @@ namespace ammo
 			vp.Set<std::int32_t>("ZOrder", 20);
 			vp.Run();
 			if (label) {
-				White(label);   // after the Slate widget exists
+				uix::InsideWheelInk(label);   // after the Slate widget exists
 				uix::ApplyFont(label, 25.0 * settings::Get().display.centreTextPercent / 100.0);   // the size the other wheels' centre names have
 			}
 			g_root = reflect::Hold(root);
@@ -388,37 +372,11 @@ namespace ammo
 			if (!label || a_text == g_shownText) {
 				return;
 			}
-			auto* fn = label->FindFunction(UE::FName(L"SetText", UE::EFindName::Find));
-			const auto params = fn ? reflect::Fields(reinterpret_cast<UE::UStruct*>(fn)) : std::vector<std::pair<std::string, std::int32_t>>{};
-			if (params.empty()) {
+			if (!uix::SetItemName(label, a_text)) {
 				return;
 			}
-			const std::wstring w = pe::Wide(a_text);
-			std::vector<std::uint8_t> buf(static_cast<std::size_t>(std::max(reinterpret_cast<UE::UStruct*>(fn)->propertiesSize, 0)) + 16, 0);
-			UE::FText* text = nullptr;
-			if (a_text.starts_with("LOC_")) {
-				static auto* lib = ui::Class(L"/Script/Engine.KismetTextLibrary");
-				ui::Call t(lib ? lib->GetDefaultObject(false) : nullptr, L"TextFromStringTable");
-				void* id = t.At("TableId");
-				void* key = t.At("Key");
-				void* ret = t.At("ReturnValue");
-				if (id && key && ret) {
-					new (id) UE::FName(kFullNames, UE::EFindName::Add);
-					auto* k = new (key) UE::FString(w.c_str());
-					t.Run();
-					auto* got = static_cast<UE::FText*>(ret);
-					text = new (buf.data() + params.front().second) UE::FText(*got);
-					got->~FText();
-					k->~FString();
-				}
-			}
-			if (!text) {
-				text = new (buf.data() + params.front().second) UE::FText(UE::FText::AsCultureInvariant(UE::FString(w.c_str())));
-			}
-			label->ProcessEvent(fn, buf.data());
-			text->~FText();
 			g_shownText = a_text;
-			White(label);
+			uix::InsideWheelInk(label);
 			uix::ApplyFont(label, 0);
 		}
 
