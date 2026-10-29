@@ -156,51 +156,6 @@ namespace ammo
 		std::uint32_t     g_worn = 0;                // the arrows worn when it opened
 		int               g_drawnPointed = -2;
 		WORD              g_swallow = 0;             // buttons the wheel used: the game never sees them, until let go
-		std::string       g_last = "never opened";
-		std::uint32_t     g_opens = 0, g_equips = 0;
-
-		// The TES thread may change the player's item list while the UI thread reads it, and a node freed under a walk faults: the
-		// raw reads sit in helpers of plain pointers (__try cannot unwind C++ objects, C2712) and a fault reads as "nothing".
-		RE::BSSimpleList<RE::ItemChange*>* Items()
-		{
-			__try {
-				auto* player = RE::PlayerCharacter::GetSingleton();
-				auto* changes = player ? player->extra.GetExtraData<RE::ExtraContainerChanges>() : nullptr;
-				return changes && changes->changes ? changes->changes->list : nullptr;
-			} __except (EXCEPTION_EXECUTE_HANDLER) {
-				return nullptr;
-			}
-		}
-
-		bool Worn(RE::ExtraDataList* a_list)
-		{
-			return a_list && (a_list->GetExtraData(RE::EXTRA_DATA_TYPE::Worn) || a_list->GetExtraData(RE::EXTRA_DATA_TYPE::WornLeft));
-		}
-
-		std::uint32_t WornAmmoGuarded(RE::BSSimpleList<RE::ItemChange*>* a_items)
-		{
-			using ItemNode = RE::BSSimpleList<RE::ItemChange*>::Node;
-			using ExtraNode = RE::BSSimpleList<RE::ExtraDataList*>::Node;
-			__try {
-				for (auto* node = reinterpret_cast<ItemNode*>(a_items); node; node = node->next) {
-					RE::ItemChange* item = node->item;
-					if (!item || !item->object || !item->extraData || item->count <= 0 ||
-						item->object->GetFormType() != RE::FormType::Ammo) continue;
-					for (auto* xn = reinterpret_cast<ExtraNode*>(item->extraData); xn; xn = xn->next) {
-						if (Worn(xn->item)) return item->object->GetFormID();
-					}
-				}
-			} __except (EXCEPTION_EXECUTE_HANDLER) {
-			}
-			return 0;
-		}
-
-		// Read currently worn arrows independently of the weapon: Ammo can be preselected with no bow.
-		std::uint32_t WornAmmo()
-		{
-			auto* items = Items();
-			return items ? WornAmmoGuarded(items) : 0;
-		}
 
 		double Radius() { return 317.0 * settings::Get().ammoScalePercent / 100.0; }   // half of the HUD wheel's 634
 
@@ -590,42 +545,6 @@ namespace ammo
 			logger::info("ammo: the wheel closed ({})", a_why);
 		}
 
-		void Equip(std::uint32_t a_id)
-		{
-			testhread::Post([a_id]() {
-				auto* player = RE::PlayerCharacter::GetSingleton();
-				auto* items = Items();
-				if (!player || !items) {
-					return;
-				}
-				for (RE::ItemChange* item : *items) {
-					if (item && item->object && item->object->GetFormID() == a_id && item->count > 0 &&
-						item->object->GetFormType() == RE::FormType::Ammo) {
-						// already worn: nothing to do. Every open of the wheel used to equip the stack again (40 equips of the
-						// same iron arrows in one session) and the owner saw the arrows duplicated in the inventory (2026-09-30)
-						bool worn = false;
-						if (item->extraData) {
-							for (RE::ExtraDataList* xl : *item->extraData) {
-								worn = worn || Worn(xl);
-							}
-						}
-						if (worn) {
-							logger::info("ammo: {} are worn already - nothing equipped", inventory::NameOf(a_id));
-							return;
-						}
-						// arrows are worn as the whole stack; no lock (EquipObject's last argument is the console's NoUnequip)
-						// EquipObject may rebuild inventory entries: do not dereference item after it returns.
-						const auto count = item->count;
-						const auto name = inventory::NameOf(a_id);
-						player->EquipObject(item->object, count, nullptr, false, false);
-						logger::info("ammo: {} x{} equipped (TES thread)", name, count);
-						return;
-					}
-				}
-				logger::info("ammo: 0x{:08X} is not carried ammunition - nothing equipped", a_id);
-			});
-		}
-
 		// the next filled slot from a_from (-1 = none yet) in a_dir
 		int Step(int a_from, int a_dir)
 		{
@@ -670,7 +589,7 @@ namespace ammo
 			if (!s.ammoWheel || !button || !a_gameplay || a_radialOpen || !(a_pressed & button)) {
 				return false;
 			}
-			const auto worn = WornAmmo();
+			const auto worn = inventory::WornAmmo();
 			// Keep true saved cell indices in full-ring mode. No arrow type is truncated.
 			const auto slots = wheels::AmmoSlots();
 			const auto layout = ammolayout::Build(slots, s.ammoCentred);
@@ -692,7 +611,6 @@ namespace ammo
 			Layout(g_count);
 			g_open = true;
 			LockLook(true);
-			++g_opens;
 			g_pointed = -1;
 			for (int i = 0; i < kSlots && g_pointed < 0; ++i) {
 				g_pointed = g_ids[i] && g_ids[i] == worn ? i : -1;   // starts on the arrows worn now
@@ -704,7 +622,6 @@ namespace ammo
 			ui::Visible(reflect::Get(g_root), true);
 			g_swallow |= button;
 			a_out &= ~button;
-			g_last = std::format("opened with {} arrow kind(s)", filled);
 			logger::info("ammo: the wheel opened - {} arrow kind(s) on it{}", filled, filled ? "" : " (the favourite button on arrows in the inventory puts them here)");
 			return true;
 		}
@@ -744,17 +661,13 @@ namespace ammo
 		}
 		if (a_pressed & XINPUT_GAMEPAD_B) {
 			g_swallow |= XINPUT_GAMEPAD_B;
-			g_last = "closed with B";
 			Close("B - nothing equipped");
 		} else if (a_pressed & (button | XINPUT_GAMEPAD_A)) {
 			g_swallow |= a_pressed & (button | XINPUT_GAMEPAD_A);
 			if (g_pointed >= 0 && g_ids[g_pointed]) {
-				++g_equips;
-				g_last = std::format("equipped {}", inventory::NameOf(g_ids[g_pointed]));
-				Equip(g_ids[g_pointed]);
+				inventory::EquipAmmo(g_ids[g_pointed]);
 				Close("the pointed arrows go on");
 			} else {
-				g_last = "closed with nothing pointed";
 				Close("nothing pointed");
 			}
 		} else {
@@ -764,11 +677,6 @@ namespace ammo
 	}
 
 	bool Open() { return g_open; }
-
-	void EquipArrows(std::uint32_t a_formID)
-	{
-		Equip(a_formID);
-	}
 
 
 	void PointAt(int a_entry)
@@ -796,18 +704,5 @@ namespace ammo
 			if (d < bestDist) bestDist = d, best = i;
 		}
 		return best;
-	}
-
-
-	nlohmann::json State()
-	{
-		const auto t = testhread::GetStatus();
-		nlohmann::json ids = nlohmann::json::array();
-		for (const auto id : wheels::AmmoSlots()) {
-			ids.push_back(id ? inventory::NameOf(id) : "");
-		}
-		return { { "open", g_open }, { "pointed", g_pointed }, { "built", Built() }, { "builds", g_builds }, { "opens", g_opens },
-			{ "equips", g_equips }, { "last", g_last }, { "slots", ids }, { "tes_thread", t.installed }, { "tes_thread_calls", t.calls },
-			{ "tes_thread_queued", t.queued } };
 	}
 }

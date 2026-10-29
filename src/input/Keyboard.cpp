@@ -2,7 +2,6 @@
 
 #include "ammo/Ammo.h"
 #include "game/Menus.h"
-#include "input/Pad.h"
 #include "engine/PEHook.h"
 #include "game/QuickKeys.h"
 #include "game/MessageDiscovery.h"
@@ -368,7 +367,7 @@ namespace keyboard
 
 		bool PanelUp(menus::Menu a_menu)
 		{
-			return quickkeys::PanelOpen() || (a_menu == menus::Menu::kMagic && pad::MagicPanelUp());
+			return quickkeys::PanelOpen() || (a_menu == menus::Menu::kMagic && quickkeys::MagicPanelUp());
 		}
 
 		// lays the running script over this read; true while one is running

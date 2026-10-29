@@ -547,6 +547,14 @@ namespace quickkeys
 		return g_status.panelOpen;
 	}
 
+	namespace
+	{
+		bool g_magicPanel = false;   // game thread only
+	}
+
+	bool MagicPanelUp() { return g_magicPanel; }
+	void SetMagicPanelUp(bool a_up) { g_magicPanel = a_up; }
+
 	bool AnyWheelVisible() { return VisibleWheel() != nullptr; }
 
 	UE::UObject* VisibleWheel()

@@ -36,6 +36,10 @@ namespace quickkeys
 	bool RadialOpen();   // the HUD radial is showing
 	std::uint32_t OpenCount();   // how many openings of the radial have been reported (a reopen before any close report still counts)
 	bool PanelOpen();    // a menu's assign panel is showing
+	// the magic menu's panel is up: it reports no visibility change through ProcessEvent, so the controller read sets this
+	// from AnyWheelVisible and its own toggles (Pad.cpp). Game thread.
+	bool MagicPanelUp();
+	void SetMagicPanelUp(bool a_up);
 	// one of the game's message boxes is up (WBP_ModernMenu_Message: "You cannot drink any more potions", "apply the poison?", "already poisoned"...):
 	// a click or A then answers it and must not be taken as a choice on the wheel behind it. Looked up when a choice is about to be made, not every read.
 	// Drawing may defer discovery of a new instance up to100ms; input keeps immediate discovery.

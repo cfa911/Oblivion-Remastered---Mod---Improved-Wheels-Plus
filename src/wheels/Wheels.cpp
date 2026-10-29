@@ -1,12 +1,11 @@
 #include "wheels/Wheels.h"
 #include "wheels/WheelStorage.h"
 #include "core/AtomicFile.h"
-#include "engine/SessionContext.h"
+#include "game/SessionContext.h"
 #include "wheels/KnownEntry.h"
 #include "wheels/EmptySetup.h"
 #include "wheels/CarriedHistory.h"
 
-#include "ammo/Ammo.h"
 #include "game/Inventory.h"
 #include "game/Menus.h"
 #include "engine/PEHook.h"
@@ -1852,7 +1851,7 @@ logger::info("wheels: the {} wheel's own button - it is the active wheel", Name(
 			return;
 		}
 		logger::info("wheels: Ammo slot {} used - {}", a_slot + 1, inventory::NameOf(slot.entries[static_cast<std::size_t>(slot.active)]));
-		ammo::EquipArrows(slot.entries[static_cast<std::size_t>(slot.active)]);
+		inventory::EquipAmmo(slot.entries[static_cast<std::size_t>(slot.active)]);
 	}
 
 	void PanelShown(menus::Menu a_menu)

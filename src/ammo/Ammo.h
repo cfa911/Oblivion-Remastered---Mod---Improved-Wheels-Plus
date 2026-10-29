@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Xinput.h>   // types and constants only - nothing is linked or loaded
-#include <nlohmann/json.hpp>
 
 // ============================================================================================================
 // The Ammo wheel: eight assigned arrow cells, available independently of the equipped weapon.
@@ -26,8 +25,6 @@ namespace ammo
 	// took this read - the rest of the gameplay rules then leave it alone.
 	bool Rewrite(XINPUT_GAMEPAD& a_pad, WORD a_raw, WORD a_pressed, WORD& a_out, bool a_gameplay, bool a_radialOpen);
 	bool Open();
-	void EquipArrows(std::uint32_t a_formID);            // put those arrows on (the TES thread)
 	void PointAt(int a_entry);                          // the mouse is over that entry: it is the pointed one
 	int  EntryUnderMouse(double a_x, double a_y);       // the entry at that spot (viewport units), -1 for none
-	nlohmann::json State();
 }

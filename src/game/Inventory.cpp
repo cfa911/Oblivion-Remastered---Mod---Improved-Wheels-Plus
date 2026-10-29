@@ -42,6 +42,11 @@ RE::BSExtraData* KeyExtra(RE::ExtraDataList* a_list)
 			}
 		}
 
+		bool IsWorn(const RE::ExtraDataList* a_list)
+		{
+			return a_list && (a_list->GetExtraData(RE::EXTRA_DATA_TYPE::Worn) || a_list->GetExtraData(RE::EXTRA_DATA_TYPE::WornLeft));
+		}
+
 		RE::ItemChange* FindGuarded(RE::BSSimpleList<RE::ItemChange*>* a_items, std::uint32_t a_formID)
 		{
 			__try {
@@ -97,8 +102,7 @@ RE::BSExtraData* KeyExtra(RE::ExtraDataList* a_list)
 				const int count = item->count;
 				if (a_worn && item->extraData) {
 					for (auto* xn = reinterpret_cast<ExtraNode*>(item->extraData); xn; xn = xn->next) {
-						RE::ExtraDataList* xl = xn->item;
-						if (xl && (xl->GetExtraData(RE::EXTRA_DATA_TYPE::Worn) || xl->GetExtraData(RE::EXTRA_DATA_TYPE::WornLeft))) {
+						if (IsWorn(xn->item)) {
 							*a_worn = true;
 						}
 					}
@@ -142,14 +146,15 @@ RE::BSExtraData* KeyExtra(RE::ExtraDataList* a_list)
 			return -1;
 		}
 
-		std::uint32_t AtPositionGuarded(RE::BSSimpleList<RE::ItemChange*>* a_items, int a_position)
+		std::uint32_t WornAmmoGuarded(RE::BSSimpleList<RE::ItemChange*>* a_items)
 		{
 			__try {
-				int i = 0;
 				for (auto* node = reinterpret_cast<ItemNode*>(a_items); node; node = node->next) {
-					if (i++ == a_position) {
-						RE::ItemChange* item = node->item;
-						return item && item->object && item->count > 0 ? item->object->GetFormID() : 0u;
+					RE::ItemChange* item = node->item;
+					if (!item || !item->object || !item->extraData || item->count <= 0 ||
+						item->object->GetFormType() != RE::FormType::Ammo) continue;
+					for (auto* xn = reinterpret_cast<ExtraNode*>(item->extraData); xn; xn = xn->next) {
+						if (IsWorn(xn->item)) return item->object->GetFormID();
 					}
 				}
 			} __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -283,11 +288,48 @@ RE::BSExtraData* KeyExtra(RE::ExtraDataList* a_list)
 		return items && a_formID ? PositionGuarded(items, a_formID) : -1;
 }
 
-	std::uint32_t AtPosition(int a_position)
+	// Read currently worn arrows independently of the weapon: Ammo can be preselected with no bow.
+	std::uint32_t WornAmmo()
 	{
 		auto* items = Items();
-		return items && a_position >= 0 ? AtPositionGuarded(items, a_position) : 0u;
-}
+		return items ? WornAmmoGuarded(items) : 0;
+	}
+
+	void EquipAmmo(std::uint32_t a_id)
+	{
+		testhread::Post([a_id]() {
+			auto* player = RE::PlayerCharacter::GetSingleton();
+			auto* items = Items();
+			if (!player || !items) {
+				return;
+			}
+			for (RE::ItemChange* item : *items) {
+				if (item && item->object && item->object->GetFormID() == a_id && item->count > 0 &&
+					item->object->GetFormType() == RE::FormType::Ammo) {
+					// already worn: nothing to do. Every open of the wheel used to equip the stack again (40 equips of the
+					// same iron arrows in one session) and the owner saw the arrows duplicated in the inventory (2026-09-30)
+					bool worn = false;
+					if (item->extraData) {
+						for (RE::ExtraDataList* xl : *item->extraData) {
+							worn = worn || IsWorn(xl);
+						}
+					}
+					if (worn) {
+						logger::info("ammo: {} are worn already - nothing equipped", NameOf(a_id));
+						return;
+					}
+					// arrows are worn as the whole stack; no lock (EquipObject's last argument is the console's NoUnequip)
+					// EquipObject may rebuild inventory entries: do not dereference item after it returns.
+					const auto count = item->count;
+					const auto name = NameOf(a_id);
+					player->EquipObject(item->object, count, nullptr, false, false);
+					logger::info("ammo: {} x{} equipped (TES thread)", name, count);
+					return;
+				}
+			}
+			logger::info("ammo: 0x{:08X} is not carried ammunition - nothing equipped", a_id);
+		});
+	}
 
 	void ClearKey(std::uint32_t a_formID)
 	{

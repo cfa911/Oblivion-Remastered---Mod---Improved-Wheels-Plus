@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/SessionEpoch.h"
+
 // ============================================================================================================
 // The Gamebryo side's own thread. The remaster runs the TES simulation on a thread of its own, and the engine's
 // equipment path checks for it: an unequip called from the UE game thread (the pad read, ProcessEvent) ends in a
@@ -16,6 +18,10 @@
 namespace testhread
 {
 	using Task = std::function<void()>;
+	using SessionSource = sessionepoch::Token (*)();   // the character context now (sessioncontext::Current)
+
+	// set once at plugin load, before anything posts: Post drops work while no source is set (no context is ready)
+	void SetSessionSource(SessionSource a_source);
 
 	bool Install();      // at the first frame; true when the loop call is hooked
 	bool Installed();

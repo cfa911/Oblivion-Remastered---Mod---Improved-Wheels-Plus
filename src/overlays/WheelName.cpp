@@ -3,7 +3,6 @@
 
 #include "game/Inventory.h"
 #include "game/Menus.h"
-#include "input/Pad.h"
 #include "game/QuickKeys.h"
 #include "engine/PEHook.h"
 #include "engine/Reflect.h"
@@ -269,7 +268,7 @@ ui::Visible(root, false);
 			name = wheels::Active() == wheels::Wheel::kMagic ? "Magic Wheel" : wheels::Active() == wheels::Wheel::kAmmo ? "Ammo Wheel" : "Inventory Wheel";
 		} else if (menu == menus::Menu::kInventory && quickkeys::PanelOpen()) {
 			name = wheels::AssignmentWheel(menu) == wheels::Wheel::kAmmo ? "Ammo Wheel" : "Inventory Wheel";
-		} else if (menu == menus::Menu::kMagic && pad::MagicPanelUp()) {
+		} else if (menu == menus::Menu::kMagic && quickkeys::MagicPanelUp()) {
 			name = "Magic Wheel";
 		}
 		auto* wheel = name ? quickkeys::VisibleWheel() : nullptr;

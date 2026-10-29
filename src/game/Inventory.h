@@ -32,7 +32,6 @@ namespace inventory
 	std::vector<Carried> CarriedWithTypedNames();
 
 	int           PositionOf(std::uint32_t a_formID);   // where the item sits in the player's item list (-1 = not carried)
-	std::uint32_t AtPosition(int a_position);          // the item at that place of the list (0 = none)
 
 	void ClearKey(std::uint32_t a_formID);            // takes every quick key off that item
 	void ClearSlot(int a_key);                        // takes quick key N off whichever item has it
@@ -60,4 +59,7 @@ namespace inventory
 	// takes the item off (the worn instance, the quick-keyed one first), on the TES thread: RB / A / closing on the slot of an item already worn
 	void UnequipKeyed(std::uint32_t a_formID);
 	void ToggleKeyed(std::uint32_t a_formID);   // worn-state decision made at TES dispatch for repeated quick uses
+
+	std::uint32_t WornAmmo();                   // the arrows worn now (0 = none); no bow needed. Reads only
+	void EquipAmmo(std::uint32_t a_formID);     // puts those arrows on as the whole stack, on the TES thread (nothing if worn already)
 }

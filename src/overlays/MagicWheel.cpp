@@ -2,7 +2,6 @@
 
 #include "game/Inventory.h"
 #include "game/Menus.h"
-#include "input/Pad.h"
 #include "engine/PEHook.h"
 #include "game/QuickKeys.h"
 #include "engine/Reflect.h"
@@ -339,7 +338,7 @@ namespace magicwheel
 		if (messageUp) slotcounts::Hide();
 		const auto menu = menus::Active();
 		const bool radial = quickkeys::RadialOpen();
-		const bool magic = (radial && wheels::Active() == wheels::Wheel::kMagic) || (menu == menus::Menu::kMagic && pad::MagicPanelUp());
+		const bool magic = (radial && wheels::Active() == wheels::Wheel::kMagic) || (menu == menus::Menu::kMagic && quickkeys::MagicPanelUp());
 		const bool equip = (radial && wheels::Active() == wheels::Wheel::kEquipment) || (menu == menus::Menu::kInventory && quickkeys::PanelOpen());
 		auto* wheel = magic || equip || (radial && wheels::Active() == wheels::Wheel::kAmmo) ? quickkeys::VisibleWheel() : nullptr;
 		const bool equipPanel = !magic && menu == menus::Menu::kInventory && quickkeys::PanelOpen();   // the Inventory's assign panel

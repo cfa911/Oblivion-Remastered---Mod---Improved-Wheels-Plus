@@ -35,6 +35,4 @@ namespace pad
 	using FrameCallback = void (*)();
 	void SetFrameCallback(FrameCallback a_callback);
 
-	bool        MagicPanelUp();
-
 }

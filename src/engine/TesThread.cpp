@@ -1,7 +1,6 @@
 #include "engine/TesThread.h"
 
 #include "engine/Scan.h"
-#include "engine/SessionContext.h"
 
 #include <MinHook.h>
 
@@ -32,6 +31,13 @@ namespace testhread
 		std::atomic<std::uint32_t> g_thread{ 0 };
 		std::atomic<std::uint64_t> g_calls{ 0 };
 		std::atomic<void (*)()>    g_perPass{ nullptr };
+		std::atomic<SessionSource> g_session{ nullptr };
+
+		sessionepoch::Token Session()
+		{
+			const auto source = g_session.load(std::memory_order_acquire);
+			return source ? source() : sessionepoch::Token{};
+		}
 
 		std::int64_t Detour(void* a_this)
 		{
@@ -40,7 +46,7 @@ namespace testhread
 				g_thread = GetCurrentThreadId();
 				logger::info("tes thread: the main loop's per-iteration call runs on thread {} - the ammo wheel's equips run here", g_thread.load());
 			}
-			(void)sessioncontext::Current();   // observe load/unavailable intervals even with no tasks
+			(void)Session();   // observe load/unavailable intervals even with no tasks
 			std::deque<Task> run;
 			{
 				std::scoped_lock l(g_lock);
@@ -97,13 +103,15 @@ namespace testhread
 
 	void SetPerPass(void (*a_fn)()) { g_perPass.store(a_fn, std::memory_order_release); }
 
+	void SetSessionSource(SessionSource a_source) { g_session.store(a_source, std::memory_order_release); }
+
 	void Post(Task a_task)
 	{
-		const auto captured = sessioncontext::Current();
+		const auto captured = Session();
 		if (!captured.context.ready) return;
 		std::scoped_lock l(g_lock);
 		g_tasks.push_back([captured, task = std::move(a_task)] {
-			if (sessionepoch::Epoch::Allows(captured, sessioncontext::Current())) task();
+			if (sessionepoch::Epoch::Allows(captured, Session())) task();
 		});
 	}
 

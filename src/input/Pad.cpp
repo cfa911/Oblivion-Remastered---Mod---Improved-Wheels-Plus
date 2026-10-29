@@ -77,7 +77,6 @@ namespace pad
 		int g_bPulse = 0;
 		bool g_closingMagic = false;   // the radial is closing on a Magic slot: the stick held centred, no slot pointed, until it has closed
 		closeepoch::Epoch g_closeEpoch;   // the close ends early when the wheel button goes down again or the radial reports another opening (IWP-024)
-bool g_magicPanel = false;   // the magic menu's panel is up (it reports no visibility change; tracked from our own toggles)
 		bool g_swallowA = false;     // A was ours (the magic menu's panel): the game never sees it, until let go
 		bool g_swallowX = false;     // X (drop) on a favourite: the game never sees it, until let go
 		bool g_panelX = false;       // X went down on a pointed slot of an assign panel (held 0.6 s clears the slot)
@@ -114,9 +113,6 @@ bool g_magicPanel = false;   // the magic menu's panel is up (it reports no visi
 				g_radialResting = true;
 				g_radialRestSince = a_now;
 				quickkeys::RestorePointer(open ? "the wheel opened" : "the wheel closed");   // a clear on a close hid the arrow: back for every opening
-				if (g_snapped) {
-					quickkeys::RestorePointer(open ? "the wheel opened" : "the wheel closed");
-				}
 				g_snapped = false;
 				g_unreported = 0;
 			}
@@ -182,10 +178,10 @@ bool g_magicPanel = false;   // the magic menu's panel is up (it reports no visi
 
 		void SetMagicPanel(bool a_up)
 		{
-			if (g_magicPanel == a_up) {
+			if (quickkeys::MagicPanelUp() == a_up) {
 				return;
 			}
-			g_magicPanel = a_up;
+			quickkeys::SetMagicPanelUp(a_up);
 			if (a_up) {
 				wheels::PanelShown(menus::Menu::kMagic);
 			} else {
@@ -512,7 +508,7 @@ const int slot = settings::Get().chooseOnClose ? PointedKey() : -1;
 					if (now >= s_nextLook) {
 						s_nextLook = now + 200ms;
 						const bool up = quickkeys::AnyWheelVisible();
-						if (up != g_magicPanel) {
+						if (up != quickkeys::MagicPanelUp()) {
 							logger::info("pad: the magic menu's wheel panel is {}", up ? "showing - the Magic wheel" : "hidden");
 						}
 						SetMagicPanel(up);
@@ -564,7 +560,7 @@ const int slot = settings::Get().chooseOnClose ? PointedKey() : -1;
 						ResetMenuState();
 					}
 				}
-				if (quickkeys::PanelOpen() || (menu == menus::Menu::kMagic && g_magicPanel)) {
+				if (quickkeys::PanelOpen() || (menu == menus::Menu::kMagic && quickkeys::MagicPanelUp())) {
 					// B backs out of the panel (the game's own toggle, as the hold on D-pad down); the next B leaves the menu
 					if (pressed & XINPUT_GAMEPAD_B) {
 						g_swallowB = true;
@@ -1025,11 +1021,6 @@ if (g_centreStick > 0) {
 		}
 		logger::error("pad: the game imports no XInputGetState - no controller rules");
 		return false;
-	}
-
-	bool MagicPanelUp()
-	{
-		return g_magicPanel;
 	}
 
 	void SetFrameCallback(FrameCallback a_callback)
