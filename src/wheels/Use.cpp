@@ -31,9 +31,11 @@ namespace wheels::detail
 
 	// the repair hammer (form 0x0000000C, a Misc item): the game's own quick-key press does nothing for it (the owner's log, 2026-10-20: "unchanged 0.7 s after
 	// the game's key press ... nothing visible changed", IWP-011), so it is used from inside the Inventory menu once the radial has closed (HammerInvStart)
+	constexpr std::uint32_t kRepairHammer = 0x0000000C;
+
 	bool MiscTool(std::uint32_t a_id)
 	{
-		return a_id == 0x0000000C;
+		return a_id == kRepairHammer;
 	}
 
 	// the controller function that presses the open-inventory action ("OpenInventoryMenuInput_Pressed" in game 1.512.105.0); found once by name

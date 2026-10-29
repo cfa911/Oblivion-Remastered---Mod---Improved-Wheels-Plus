@@ -326,7 +326,7 @@ namespace pad
 
 		void CloseOnPointed(const char* a_how)
 		{
-const int slot = settings::Get().chooseOnClose ? PointedKey() : -1;
+			const int slot = settings::Get().chooseOnClose ? PointedKey() : -1;
 			if (slot >= 0 && slot == g_stayUsedSlot) {
 				g_stayUsedSlot = -1;
 				CloseOnNothing(a_how);

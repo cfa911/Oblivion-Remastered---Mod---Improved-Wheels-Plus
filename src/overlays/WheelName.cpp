@@ -65,7 +65,7 @@ namespace wheelname
 			vp.Run();
 			TitleInk(label);
 			uix::ApplyBoldFont(label, 30.0, kTitleOutline, 2);   // the owner, 2026-10-22: one pixel thicker
-ui::Visible(root, false);
+			ui::Visible(root, false);
 			g_root = reflect::Hold(root);
 			g_label = reflect::Hold(label);
 			g_slot = reflect::Hold(slot);

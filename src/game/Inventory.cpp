@@ -10,7 +10,7 @@ namespace inventory
 		constexpr std::ptrdiff_t kKeyIDOffset = 0x18;
 		constexpr std::size_t kQuickKeySize = 0x20;
 
-RE::BSExtraData* KeyExtra(RE::ExtraDataList* a_list)
+		RE::BSExtraData* KeyExtra(RE::ExtraDataList* a_list)
 		{
 			for (RE::BSExtraData* x = a_list ? a_list->head : nullptr; x; x = x->next) {
 				if (static_cast<std::uint8_t>(x->type.get()) == kQuickKeyType) {
@@ -227,7 +227,7 @@ RE::BSExtraData* KeyExtra(RE::ExtraDataList* a_list)
 			}
 		}
 		return out;
-}
+	}
 
 	bool Ready()
 	{
@@ -238,7 +238,7 @@ RE::BSExtraData* KeyExtra(RE::ExtraDataList* a_list)
 	{
 		auto* items = a_formID ? Items() : nullptr;
 		return items && CountGuarded(items, a_formID, nullptr) > 0;
-}
+	}
 
 	std::string NameOf(std::uint32_t a_formID)
 	{
@@ -251,7 +251,7 @@ RE::BSExtraData* KeyExtra(RE::ExtraDataList* a_list)
 	{
 		auto* items = Items();
 		return items && !a_name.empty() ? FindNamedGuarded(items, a_name.c_str()) : 0;
-}
+	}
 
 	std::vector<Carried> CarriedWithTypedNames()
 	{
@@ -286,7 +286,7 @@ RE::BSExtraData* KeyExtra(RE::ExtraDataList* a_list)
 	{
 		auto* items = Items();
 		return items && a_formID ? PositionGuarded(items, a_formID) : -1;
-}
+	}
 
 	// Read currently worn arrows independently of the weapon: Ammo can be preselected with no bow.
 	std::uint32_t WornAmmo()
@@ -576,7 +576,7 @@ RE::BSExtraData* KeyExtra(RE::ExtraDataList* a_list)
 		out.count = CountGuarded(items, a_formID, &out.worn);
 		out.carried = out.count > 0;
 		return out;
-}
+	}
 
 	std::string Describe(const State& a_state)
 	{

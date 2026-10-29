@@ -352,6 +352,9 @@ namespace wheels::detail
 	// when they're favorited. So that great swords go to great swords, claymores to claymores, maces to maces"): a
 	// weapon by its type (blade or blunt, one- or two-handed, staff, bow), armour and clothing by the body slot they
 	// fill (the lowest slot bit), anything else by its form type. 0 = not known.
+	// the kinds' ranges: a weapon type, an armour or clothing body slot, or another form type
+	constexpr std::uint32_t kKindWeapon = 0x100, kKindArmour = 0x200, kKindClothing = 0x300, kKindOther = 0x400;
+
 	std::uint32_t KindOf(std::uint32_t a_id)
 	{
 		auto* form = a_id ? RE::TESForm::LookupByID(a_id) : nullptr;
@@ -359,7 +362,7 @@ namespace wheels::detail
 		const auto type = form->GetFormType();
 		if (type == RE::FormType::Weapon) {
 			auto* weap = form->As<RE::TESObjectWEAP>();
-			return weap ? 0x100u + static_cast<std::uint32_t>(weap->data.type) : 0;
+			return weap ? kKindWeapon + static_cast<std::uint32_t>(weap->data.type) : 0;
 		}
 		const RE::TESBipedModelForm* biped = nullptr;
 		if (type == RE::FormType::Armor) biped = form->As<RE::TESObjectARMO>();
@@ -368,9 +371,9 @@ namespace wheels::detail
 			const std::uint32_t slots = biped->bipedModelData.bipedObjectSlots;
 			std::uint32_t low = 0;
 			while (low < 16 && !(slots & (1u << low))) ++low;
-			return (type == RE::FormType::Armor ? 0x200u : 0x300u) + low;
+			return (type == RE::FormType::Armor ? kKindArmour : kKindClothing) + low;
 		}
-		return 0x400u + static_cast<std::uint32_t>(type);
+		return kKindOther + static_cast<std::uint32_t>(type);
 	}
 
 	// Y: on its wheel (the first slot with room) or off it (wherever it is)

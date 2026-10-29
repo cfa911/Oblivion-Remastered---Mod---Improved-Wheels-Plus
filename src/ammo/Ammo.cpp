@@ -239,7 +239,6 @@ namespace ammo
 				}
 			}
 			logger::info("ammo: the wheel is {}", g_material ? (g_centred ? "the game's full eight-cell Ammo ring" : "the game's own (MIC_UI_QuickKeys), its left half") : "drawn (the game's wheel material could not be instanced)");
-			const double panelW = centred ? R : g_material ? R * (1.0 + kOverhang) : R;   // how far the name sits left of the wheel's edge
 
 			UE::UObject* backSlot = nullptr;
 			if (auto* back = g_material ? nullptr : ui::AddToCanvas(panel, L"/Script/UMG.Image", (L"IwmAmmoBack" + n).c_str(), &backSlot)) {

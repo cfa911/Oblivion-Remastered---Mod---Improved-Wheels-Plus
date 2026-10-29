@@ -719,13 +719,13 @@ namespace rows
 		if (!list || !wanted) return false;
 		// Match the current live form pointer, without dereferencing old list entries; the walk is fault-guarded (SpellPositionGuarded).
 		return SpellPositionGuarded(list, wanted, 0) >= 0;
-}
+	}
 
 	std::size_t PlayerSpellCount()
 	{
 		auto* list = PlayerSpells();
 		return list ? SpellCountGuarded(list) : 0;
-}
+	}
 
 	std::uint32_t SpellByName(const std::string& a_name)
 	{

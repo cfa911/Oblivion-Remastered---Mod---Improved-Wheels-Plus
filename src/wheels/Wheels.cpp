@@ -415,11 +415,11 @@ namespace wheels
 			return;
 		}
 		g_keepUntil = GetTickCount64() + 1500;   // this press chose the wheel the radial opens on
-if (a_wheel == Active()) {
+		if (a_wheel == Active()) {
 			return;
 		}
 		g_active.store(static_cast<int>(a_wheel));
-logger::info("wheels: the {} wheel's own button - it is the active wheel", Name(a_wheel));
+		logger::info("wheels: the {} wheel's own button - it is the active wheel", Name(a_wheel));
 		if (quickkeys::RadialOpen() && EnsureLoaded()) {
 			ShowMagic(a_wheel == Wheel::kMagic);
 		}
@@ -452,7 +452,7 @@ logger::info("wheels: the {} wheel's own button - it is the active wheel", Name(
 			logger::info("wheels: the radial opens on the Equipment wheel (bRememberWheel=0)");
 		}
 		g_keepUntil = 0;
-if (Active() == Wheel::kAmmo && !(settings::Get().ammoWheel)) {
+		if (Active() == Wheel::kAmmo && !(settings::Get().ammoWheel)) {
 			g_active.store(static_cast<int>(Wheel::kEquipment));
 		}
 		if (EnsureLoaded()) {
