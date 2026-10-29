@@ -1,6 +1,7 @@
 #include "input/Pad.h"
 #include "input/RadialSelection.h"
 #include "input/CloseEpoch.h"
+#include "input/Interop.h"
 
 #include "ammo/Ammo.h"
 #include "input/Keyboard.h"
@@ -346,80 +347,6 @@ const int slot = settings::Get().chooseOnClose ? PointedKey() : -1;
 			}
 		}
 
-		// The Apocrypha Menu Framework's window is open (AMF_IsMenuOpen, AMF OR 1.0.5+). This read comes before the
-		// framework's own pad gate hides the buttons from the game, so without this the D-pad still opened the wheels
-		// with the framework's window up (the owner, 2026-09-30: treat it like the game's own wheel, which never opens
-		// there). Looked up by name; a framework without the export (or none) leaves the rules as they were.
-		bool AmfMenuOpen()
-		{
-			using Fn = bool (*)();
-			static Fn        s_fn = nullptr;
-			static ULONGLONG s_nextLook = 0;
-			if (!s_fn) {
-				const ULONGLONG now = GetTickCount64();
-				if (now < s_nextLook) {
-					return false;
-				}
-				s_nextLook = now + 2000;
-				if (HMODULE m = ::GetModuleHandleW(L"ApocryphaMenuFramework.dll")) {
-					s_fn = reinterpret_cast<Fn>(::GetProcAddress(m, "AMF_IsMenuOpen"));
-					if (s_fn) {
-						logger::info("pad: the menu framework reports its window - the wheels stand down while it is open");
-					}
-				}
-				if (!s_fn) {
-					return false;
-				}
-			}
-			return s_fn();
-		}
-
-		// Tween Menu's own menu is open (TweenMenu_IsOpen, Tween Menu's export for this): the wheels - the ammo wheel above
-		// all - stand down as for the framework's window (the owner, 2026-09-30: "The ammo wheel shouldn't be able to be
-		// called during the tween menu"). Tween Menu draws its menu in gameplay, so no game menu reports it. Looked up by
-		// name; a Tween Menu without the export (or none) leaves the rules as they were.
-		bool TweenMenuOpen()
-		{
-			using Fn = bool (*)();
-			static Fn        s_fn = nullptr;
-			static ULONGLONG s_nextLook = 0;
-			if (!s_fn) {
-				const ULONGLONG now = GetTickCount64();
-				if (now < s_nextLook) {
-					return false;
-				}
-				s_nextLook = now + 2000;
-				if (HMODULE m = ::GetModuleHandleW(L"TweenMenu.dll")) {
-					s_fn = reinterpret_cast<Fn>(::GetProcAddress(m, "TweenMenu_IsOpen"));
-					if (s_fn) {
-						logger::info("pad: Tween Menu reports its menu - the wheels stand down while it is open");
-					}
-				}
-				if (!s_fn) {
-					return false;
-				}
-			}
-			return s_fn();
-		}
-
-		// The Menu Search - Controller Keyboard plugin (MenuSearchControllerKeyboard.dll, once OblivionSearchKeyboard.dll) has the controller while its keyboard is up: the menu rules stand aside
-		// (X on a favourite would be swallowed as 'not a drop' before the keyboard could use it as Delete).
-
-		bool SearchKeyboardOpen()
-		{
-			using Fn = bool (*)();
-			static Fn open = nullptr;
-			static ULONGLONG next = 0;
-			if (!open) {
-				const auto now = GetTickCount64();
-				if (now < next) return false;
-				next = now + 2000;
-				const auto module = GetModuleHandleW(L"MenusRevamped.dll");
-				open = module ? reinterpret_cast<Fn>(GetProcAddress(module, "MenusRevamped_IsControllerKeyboardOpen")) : nullptr;
-			}
-			return open && open();
-		}
-
 		void ResetMenuState()
 		{
 			g_menuDownHeld = false;
@@ -461,7 +388,7 @@ const int slot = settings::Get().chooseOnClose ? PointedKey() : -1;
 			g_prevRT = a_pad.bRightTrigger;
 
 			const auto now = Clock::now();
-			if (AmfMenuOpen() || TweenMenuOpen()) {
+			if (interop::AmfMenuOpen() || interop::TweenMenuOpen()) {
 				// the framework's window (or Tween Menu's menu) has the pad: no wheel rule runs, the read goes on untouched (its gate hides it
 				// from the game); an open ammo wheel closes, a latched wheel lets go
 				WORD untouched = raw;
@@ -493,7 +420,7 @@ const int slot = settings::Get().chooseOnClose ? PointedKey() : -1;
 
 			if (ammoTook) {
 				// the D-pad, A, B and the right stick were the ammo wheel's
-			} else if (SearchKeyboardOpen()) {
+			} else if (interop::ControllerKeyboardOpen()) {
 				// the search keyboard has the pad: the menu rules stand aside
 			} else if (menu != menus::Menu::kNone) {
 				// ---- the inventory / magic menu ----

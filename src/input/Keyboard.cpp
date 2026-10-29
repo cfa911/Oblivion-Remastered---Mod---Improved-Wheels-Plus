@@ -1,4 +1,5 @@
 #include "input/Keyboard.h"
+#include "input/Interop.h"
 #include "input/RadialSelection.h"
 
 #include "ammo/Ammo.h"
@@ -152,40 +153,16 @@ namespace keyboard
 			return ctx.isBox;
 		}
 
-		// The text boxes only exist when the Inventory Search / Magic Search plugins are loaded (SearchLight's bars are not text boxes).
-		// Without them there is nothing to find and the object array is never walked: the walk builds two name strings per object and
-		// took most of the game thread while the Inventory or Magic menu was open (capture 2026-10-20: 93 % of one core, 40 % of the
-		// samples in SearchBoxFocused).
-		bool SearchPluginLoaded()
-		{
-			static const bool loaded = GetModuleHandleW(L"OblivionInventorySearch.dll") != nullptr || GetModuleHandleW(L"OblivionMagicSearch.dll") != nullptr;
-			return loaded;
-		}
-
-		// SearchLight types into a bar of its own (not a text box the array walk could find) and takes the window's keys itself, but
-		// the keys are still down for GetAsyncKeyState: a digit typed into the bar would assign the highlighted item to that slot, and
-		// a typed R, Z, C or F would press the wheel's virtual buttons. SearchLight says when a bar has the typing (MenuSearch_IsTyping,
-		// the SearchLight release after 1.2.1; an older one has no such export and the answer is no, as before).
-		bool MenusRevampedAnswers(const char* a_export)
-		{
-			const HMODULE m = GetModuleHandleW(L"MenusRevamped.dll");
-			if (!m) return false;
-			const auto fn = reinterpret_cast<bool (*)()>(GetProcAddress(m, a_export));
-			return fn && fn();
-		}
-
-		bool SearchLightTyping() { return MenusRevampedAnswers("MenusRevamped_IsTyping") || MenusRevampedAnswers("MenusRevamped_IsControllerKeyboardOpen"); }
-
 		// the mouse is over a SearchLight bar: a click there is the bar's (it starts the typing), not a click on the wheel's last pointed slot
-		bool SearchLightBarUnderMouse() { return MenusRevampedAnswers("MenusRevamped_CursorOverBar"); }
+		bool SearchLightBarUnderMouse() { return interop::SearchLightCursorOverBar(); }
 
 		// a search box (the Inventory Search / Magic Search plugins') has the keyboard: digits are typing, not slot keys.
 		// The boxes found are kept (as Handles: the slot says whether the object is still the same); the array is walked again only when
 		// no kept box is alive, at most once a second, and once when the open menu changes (each menu builds its own box).
 		bool SearchBoxFocused()
 		{
-			if (SearchLightTyping()) return true;
-			if (!SearchPluginLoaded()) return false;
+			if (interop::SearchLightTyping()) return true;
+			if (!interop::OldSearchPluginsLoaded()) return false;
 			static std::vector<reflect::Handle> s_boxes;
 			static ULONGLONG                    s_scanned = 0;
 			static int                          s_scanMenu = -1;
