@@ -6,6 +6,8 @@ in `git log`. A version number is issued by the version gate only once a build i
 ## 2.4.1 - 2026-10-27 - Improved Wheels Plus
 
 ### Changed
+- Reduced repeated reflection, wheel-widget and maintenance work. Development measurements showed lower plugin processing time in gameplay, menus and assignment panels; no frame-rate or radial timing improvement is claimed.
+- Reorganized the source into feature folders and removed duplicated helpers without changing controls or settings.
 - Works with Menus Revamped: typing into a search bar, clicking a bar, and the controller keyboard now take priority over wheel shortcuts by asking `MenusRevamped.dll` (`MenusRevamped_IsTyping`, `MenusRevamped_CursorOverBar`, `MenusRevamped_IsControllerKeyboardOpen`).
 - The separate SearchLight and SearchLight - Controller Keyboard plugins (`MenuSearch.dll`, `MenuSearchControllerKeyboard.dll`, `OblivionSearchKeyboard.dll`) are no longer detected. Menus Revamped replaces them and they must not run together; keep wheel 2.4.0 if you still use them.
 
