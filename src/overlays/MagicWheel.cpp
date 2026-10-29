@@ -36,7 +36,6 @@ namespace magicwheel
 		// the inventory wheel: keys that hold a spell
 		std::array<bool, 8> g_spellKey{};
 		ULONGLONG           g_nextEquip = 0;
-		std::string         g_status = "not shown yet";
 
 		std::string NameOf(UE::UObject* a_o) { return a_o ? pe::Utf8(a_o->GetFName().ToString()) : std::string("none"); }
 
@@ -181,7 +180,6 @@ namespace magicwheel
 			ui::Visible(reflect::Get(g_root), false);
 			RestoreGame();
 			g_shown = false;
-			g_status = std::string("hidden - ") + a_why;
 			logger::info("magic wheel: hidden ({})", a_why);
 		}
 
@@ -239,7 +237,7 @@ namespace magicwheel
 				g_tex.fill(nullptr);
 				g_op.fill(-1.0f);
 			}
-			const std::array<std::uint32_t, 8> spells = a_mode == 1 ? (wheels::Ready() ? inventory::Keys() : inventory::KeyMap{}) :a_mode == 2 ? wheels::AmmoRingSlots() : wheels::MagicSlots();
+			const std::array<std::uint32_t, 8> spells = a_mode == 1 ? (wheels::Ready() ? inventory::Keys() : inventory::KeyMap{}) :a_mode == 2 ? wheels::AmmoSlots() : wheels::MagicSlots();
 			for (int k = 0; k < 8; ++k) {
 				const auto here = spells[static_cast<std::size_t>(k)];
 				auto* tex = here ? (a_mode != 0 ? rows::ItemIcon(here) : rows::SpellIcon(here)) : nullptr;
@@ -261,8 +259,7 @@ namespace magicwheel
 				g_shown = true;
 				int filled = 0;
 				for (const auto s : spells) filled += s ? 1 : 0;
-				g_status = std::format("shown over {} ({} of 8 slots hold a spell)", NameOf(gameImg), filled);
-				logger::info("magic wheel: {}", g_status);
+				logger::info("magic wheel: shown over {} ({} of 8 slots hold a spell)", NameOf(gameImg), filled);
 			}
 		}
 
@@ -378,10 +375,4 @@ namespace magicwheel
 		return a_slot >= 0 && a_slot < 8 && g_spellKey[static_cast<std::size_t>(a_slot)];
 	}
 
-	std::string Status()
-	{
-		int spells = 0;
-		for (const bool s : g_spellKey) spells += s ? 1 : 0;
-		return std::format("{}; {} of the game's keys hold a spell (drawn empty on the inventory wheel)", g_status, spells);
-	}
 }

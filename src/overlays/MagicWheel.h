@@ -18,5 +18,4 @@ namespace magicwheel
 {
 	void Tick();                    // every controller read (game thread)
 	bool IsSpellKey(int a_slot);    // the game's key a_slot (0-7) holds no item but shows a picture: a spell, off this wheel
-	std::string Status();
 }

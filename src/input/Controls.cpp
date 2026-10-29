@@ -35,6 +35,13 @@ namespace controls
 			{ "Gamepad_Special_Left", XINPUT_GAMEPAD_BACK }, { "Gamepad_Special_Right", XINPUT_GAMEPAD_START },
 		};
 
+		struct Status
+		{
+			bool        actionCreated = false;
+			bool        rowAdded = false;
+			std::string boundKey;   // the Gamepad_ key our action has now
+			std::string problem;
+		};
 		Status        g_status;
 		bool          g_setUp = false;
 		UE::UObject*  g_action = nullptr;   // rooted: never collected
@@ -339,5 +346,4 @@ namespace controls
 		}
 	}
 
-	Status GetStatus() { return g_status; }
 }

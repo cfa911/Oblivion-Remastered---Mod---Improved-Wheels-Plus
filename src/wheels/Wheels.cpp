@@ -187,8 +187,7 @@ namespace wheels
 			for ([[maybe_unused]] auto* e : item->effectList) ++effects;
 			return effects > 0 && item->hostileCount >= effects;
 		}
-		void PatchEquipment(int a_slot);
-		void Refresh();
+		void PreloadIcon(int a_slot);
 
 		void Reconcile()
 		{
@@ -273,8 +272,7 @@ namespace wheels
 			}
 			if (changed) {
 				Save();
-				for (const int s : advanced) PatchEquipment(s);
-				if (!advanced.empty()) Refresh();
+				for (const int s : advanced) PreloadIcon(s);
 			}
 		}
 
@@ -396,24 +394,10 @@ namespace wheels
 			return icons;
 		}
 
-		// Drawing is owned by MagicWheel.cpp. Keep the existing notification wrappers;
-		// the old widget redraw branch was permanently disabled.
-		void AssertEquipment() {}
-
-		// The Magic wheel is its own widget now (MagicWheel.cpp): nothing is written into the game's view model - every
-		// slot the old SetIcons redrew was the widget's own "slot changed" and ticked (the owner, 2026-09-30: "only on the
-		// magic wheel do I hear a bunch of ticking noises as soon as it appears"), and the magic menu still showed the
-		// inventory wheel's items ("when I go to inventory and magic, I still see all the same items").
-		void WriteMagic(bool /*a_force*/) {}
-
-		void AssertMagic()
-		{
-			if (g_shown != Shown::kMagic) {
-				AssertEquipment();
-				return;
-			}
-			WriteMagic(false);
-		}
+		// Drawing is owned by the overlays (MagicWheel.cpp): nothing is written into the game's view model - every slot the
+		// old SetIcons redrew was the widget's own "slot changed" and ticked (the owner, 2026-09-30: "only on the magic wheel
+		// do I hear a bunch of ticking noises as soon as it appears"), and the magic menu still showed the inventory wheel's
+		// items ("when I go to inventory and magic, I still see all the same items").
 
 		void ShowMagic(bool a_on)
 		{
@@ -437,33 +421,26 @@ namespace wheels
 			}
 		}
 
-		// an Equipment slot's key changed under the game: its picture follows (when a row has shown that item's icon)
-		void PatchEquipment(int a_slot)
+		// an Equipment slot's key changed under the game: the new item's picture is loaded now (rows::ItemIcon keeps it for
+		// the overlays), not at their next draw
+		void PreloadIcon(int a_slot)
 		{
 			if (g_shown == Shown::kMagic || a_slot < 0 || a_slot >= inventory::kSlots) {
 				return;
 			}
 			const auto id = inventory::Keys()[a_slot];
-			auto* icon = id ? rows::ItemIcon(id) : nullptr;
-			if (id && !icon) {
+			if (id && !rows::ItemIcon(id)) {
 				logger::info("wheels: slot {}'s picture not updated - no row has shown {} this session", a_slot + 1, inventory::NameOf(id));
-				return;
 			}
-			AssertEquipment();
 		}
 
-		void Refresh()
-		{
-			AssertMagic();
-		}
-
-		// every Equipment slot whose key moved since a_before gets its picture
-		void PatchChanged(const inventory::KeyMap& a_before)
+		// every Equipment slot whose key moved since a_before
+		void PreloadChangedIcons(const inventory::KeyMap& a_before)
 		{
 			const auto now = inventory::Keys();
 			for (int k = 0; k < inventory::kSlots; ++k) {
 				if (now[k] != a_before[k]) {
-					PatchEquipment(k);
+					PreloadIcon(k);
 				}
 			}
 		}
@@ -571,8 +548,7 @@ namespace wheels
 			}
 			if (any) {
 				Save();
-				PatchChanged(before);
-				Refresh();
+				PreloadChangedIcons(before);
 			}
 		}
 
@@ -615,8 +591,7 @@ namespace wheels
 				g_leaving.erase(id);
 			}
 			Save();
-			PatchChanged(before);
-			Refresh();
+			PreloadChangedIcons(before);
 		}
 
 		// Taking an item off the wheel the normal way unfavourites it (the owner, 2026-09-29: "I just removed the item from
@@ -702,7 +677,7 @@ namespace wheels
 				logger::info("wheels: the game assigned {} to slot {} - armour and clothing never go on the wheel (shields do); the slot keeps {}",
 					inventory::NameOf(a_arrived), a_slot + 1, previous ? inventory::NameOf(previous) : "nothing");
 				Save();
-				PatchChanged(original);
+				PreloadChangedIcons(original);
 				return;
 			}
 			const int idx = IndexOf(slot, a_arrived);
@@ -738,7 +713,7 @@ namespace wheels
 					inventory::NameOf(a_arrived), a_slot + 1, slot.entries.size(), slot.entries.size() == 1 ? "y" : "ies");
 			}
 			Save();
-			PatchChanged(original);
+			PreloadChangedIcons(original);
 			MigrateAmmo();   // arrows the game's own assign put on a key go to the Ammo wheel
 		}
 
@@ -802,8 +777,7 @@ namespace wheels
 					RemoveAt(a_wheel, s, idx, "Favourite toggled off");
 					RemoveFromOtherSlots(a_wheel, s, a_id);   // off the whole wheel, not only the first slot holding it
 					Save();
-					PatchChanged(before);
-					Refresh();
+					PreloadChangedIcons(before);
 					return;
 				}
 			}
@@ -817,8 +791,7 @@ namespace wheels
 						const bool same = std::any_of(slot.entries.begin(), slot.entries.end(), [&](std::uint32_t e) { return KindOf(e) == kind; });
 						if (same && AddTo(a_wheel, s, a_id, "Favourite (with its kind)")) {
 							Save();
-							PatchChanged(before);
-							Refresh();
+							PreloadChangedIcons(before);
 							return;
 						}
 					}
@@ -831,8 +804,7 @@ namespace wheels
 					const bool fits = pass == 0 ? slot.entries.empty() : static_cast<int>(slot.entries.size()) < Cap();
 					if (fits && AddTo(a_wheel, s, a_id, "Favourite")) {
 						Save();
-						PatchChanged(before);
-						Refresh();
+						PreloadChangedIcons(before);
 						return;
 					}
 				}
@@ -886,8 +858,7 @@ namespace wheels
 			}
 			if (moved) {
 				Save();
-				PatchChanged(before);   // the Equipment wheel's pictures follow its keys: nothing stale left on it
-				Refresh();
+				PreloadChangedIcons(before);   // the Equipment wheel's pictures follow its keys: nothing stale left on it
 				logger::info("wheels: {} arrow entr{} moved from the Equipment wheel to the Ammo wheel", moved, moved == 1 ? "y" : "ies");
 			}
 			return moved;
@@ -914,7 +885,6 @@ namespace wheels
 			const char*                           how = "RB";
 			std::chrono::steady_clock::time_point armed{}, closedAt{}, verifyAt{};
 		} g_use;
-		std::string g_lastUse = "none yet";
 
 		bool Equippable(std::uint32_t a_id)
 		{
@@ -1048,7 +1018,6 @@ namespace wheels
 				if (quickkeys::RadialOpen()) {
 					if (now - g_use.armed > 3s) {
 						g_use.on = false;
-						g_lastUse = std::format("slot {}: the radial never closed", n);
 						logger::info("wheels: USE slot {} - the radial did not close within 3 s; {} not used", n, name);
 					}
 					return;
@@ -1077,8 +1046,6 @@ namespace wheels
 				g_use.on = false;
 				const auto st = inventory::StateOf(g_use.id);
 				const auto ms = duration_cast<milliseconds>(now - g_use.armed).count();
-				g_lastUse = std::format("slot {}: {} {} ({} -> {})", n, name, st.worn ? "equipped at once" : "NOT worn after the equip", inventory::Describe(g_use.before),
-					inventory::Describe(st));
 				logger::info("wheels: USE result slot {} ({}) - {}: {} -> {} {} ms after the press - {}", n, g_use.how, name, inventory::Describe(g_use.before),
 					inventory::Describe(st), ms, st.worn ? "equipped at once through Actor::EquipObject" : MiscTool(g_use.id) ? (menus::AnyOpen() ? "a menu is open (the hammer's repair menu?)" : "NO menu opened") : "NOT worn: the equip did not take");
 				return;
@@ -1087,7 +1054,6 @@ namespace wheels
 				if (quickkeys::RadialOpen()) {
 					if (now - g_use.armed > 3s) {
 						g_use.on = false;
-						g_lastUse = std::format("slot {}: the radial never closed", n);
 						logger::info("wheels: USE slot {} - the radial did not close within 3 s; {} not used", n, name);
 					}
 					return;
@@ -1102,7 +1068,6 @@ namespace wheels
 				if (menus::AnyOpen()) {
 					if (now - g_use.closedAt > 1500ms) {
 						g_use.on = false;
-						g_lastUse = std::format("slot {}: a menu stayed open", n);
 						logger::info("wheels: USE slot {} - a menu is open 1.5 s after the radial closed; {} not used", n, name);
 					}
 					return;
@@ -1111,15 +1076,12 @@ namespace wheels
 				const auto st = inventory::StateOf(g_use.id);
 				if (keys[static_cast<std::size_t>(g_use.key)] != g_use.id) {
 					g_use.on = false;
-					g_lastUse = std::format("slot {}: the key moved", n);
 					logger::info("wheels: USE slot {} - the game's key {} no longer holds {}; nothing pressed", n, n, name);
 					return;
 				}
 				if (st != g_use.before) {
 					// the radial's own close used it after all (the choice was cleared, so it should not have): never twice
 					g_use.on = false;
-					g_lastUse = std::format("slot {}: {} used by the radial's own close ({} -> {})", n, name, inventory::Describe(g_use.before),
-						inventory::Describe(st));
 					logger::info("wheels: USE slot {} - the radial's own close already used {} ({} -> {}); the key is not pressed again", n, name,
 						inventory::Describe(g_use.before), inventory::Describe(st));
 					return;
@@ -1129,7 +1091,7 @@ namespace wheels
 					n, n, name, n, ok ? "" : " - the call FAILED");
 				if (!ok) {
 					g_use.on = false;
-					g_lastUse = std::format("slot {}: the key press could not be made", n);
+					logger::info("wheels: USE slot {} - the game's key press could not be made; {} not used", n, name);
 					return;
 				}
 				g_use.pressed = true;
@@ -1143,20 +1105,16 @@ namespace wheels
 			const auto st = inventory::StateOf(g_use.id);
 			const bool menu = menus::AnyOpen();
 			if (st != g_use.before || menu) {
-				g_lastUse = std::format("slot {}: {} used by the game's key press ({} -> {}{})", n, name, inventory::Describe(g_use.before),
-					inventory::Describe(st), menu ? ", a menu opened" : "");
 				logger::info("wheels: USE result slot {} ({}) - {}: {} -> {}{} - used through the game's own quick key {}", n, g_use.how, name,
 					inventory::Describe(g_use.before), inventory::Describe(st), menu ? ", a menu opened" : "", n);
 				return;
 			}
 			if (Equippable(g_use.id) && st.carried && !st.worn) {
-				g_lastUse = std::format("slot {}: {} unchanged after the key press - fallback equip", n, name);
 				logger::info("wheels: USE result slot {} ({}) - {} unchanged 0.7 s after the game's key press ({}); FALLBACK: equipped through Actor::EquipObject on the TES thread",
 					n, g_use.how, name, inventory::Describe(st));
 				inventory::EquipKeyed(g_use.id);
 				return;
 			}
-			g_lastUse = std::format("slot {}: {} unchanged after the key press", n, name);
 			logger::info("wheels: USE result slot {} ({}) - {} unchanged 0.7 s after the game's key press ({}) - nothing visible changed", n, g_use.how, name,
 				inventory::Describe(st));
 		}
@@ -1416,8 +1374,6 @@ namespace wheels
 		return a_ring >= 0 && a_ring < 8 && AmmoSlots()[a_ring] ? a_ring : -1;
 	}
 
-	std::array<std::uint32_t, 8> AmmoRingSlots() { return AmmoSlots(); }
-
 	Wheel AssignmentWheel(menus::Menu a_menu)
 	{
 		if (a_menu == menus::Menu::kMagic) return Wheel::kMagic;
@@ -1458,8 +1414,7 @@ namespace wheels
 			AddTo(wheel, a_slot, id, "slot key");
 		}
 		Save();
-		PatchChanged(before);
-		Refresh();
+		PreloadChangedIcons(before);
 	}
 
 	void Favourite(menus::Menu a_menu)
@@ -1509,7 +1464,6 @@ namespace wheels
 				AddTo(kMagic, a_slot, spell, "assign");
 			}
 			Save();
-			Refresh();
 			return;
 		}
 		if (a_menu != menus::Menu::kInventory) {
@@ -1535,7 +1489,6 @@ namespace wheels
 	{
 		if (!ObserveContext()) return;
 		CheckHud();
-		AssertMagic();
 		DriveUse();
 		HammerInvTick();
 		if (!g_pending.on) {
@@ -1578,7 +1531,6 @@ namespace wheels
 		slot.active = -1;
 		logger::info("wheels: CLEAR {} slot {} - {} entr{} removed", Name(a_wheel), a_slot + 1, n, n == 1 ? "y" : "ies");
 		Save();
-		Refresh();
 	}
 
 	void CycleEntry(Wheel a_wheel, int a_slot, int a_dir)
@@ -1617,9 +1569,8 @@ namespace wheels
 		Save();
 		logger::info("wheels: CYCLE {} slot {} -> {} ({} of {})", Name(a_wheel), a_slot + 1, NameOf(w, slot.entries[next]), next + 1, n);
 		if (w == kEquip) {
-			PatchEquipment(a_slot);
+			PreloadIcon(a_slot);
 		}
-		Refresh();
 	}
 
 	void SwitchWheel(int a_dir)
@@ -1681,7 +1632,6 @@ logger::info("wheels: the {} wheel's own button - it is the active wheel", Name(
 		} else {
 			inventory::EquipKeyed(id);   // consumables/poisons use the existing game action directly
 		}
-		g_lastUse = std::format("slot {}: direct quick use of {}", a_slot + 1, inventory::NameOf(id));
 		logger::info("wheels: direct quick use slot {} without opening the radial", a_slot + 1);
 	}
 
@@ -1697,7 +1647,6 @@ logger::info("wheels: the {} wheel's own button - it is the active wheel", Name(
 		const auto id = inventory::Keys()[static_cast<std::size_t>(a_slot)];
 		if (!id) {
 			logger::info("wheels: USE Equipment slot {} ({}) - the game's key {} holds nothing; nothing used", a_slot + 1, a_how, a_slot + 1);
-			g_lastUse = std::format("slot {}: empty key", a_slot + 1);
 			return;
 		}
 		g_use = {};
@@ -1717,7 +1666,6 @@ logger::info("wheels: the {} wheel's own button - it is the active wheel", Name(
 				// code or the game - the key press itself did nothing at all - so nothing is done, and said
 				// choosing the slot of an item that is already on takes it off
 				g_use.on = false;
-				g_lastUse = std::format("slot {}: {} was worn - taken off", a_slot + 1, inventory::NameOf(id));
 				logger::info("wheels: USE Equipment slot {} ({}) - {} is already worn ({}): taken off", a_slot + 1, a_how, inventory::NameOf(id), inventory::Describe(g_use.before));
 				inventory::UnequipKeyed(id);
 				return;
@@ -1741,8 +1689,6 @@ logger::info("wheels: the {} wheel's own button - it is the active wheel", Name(
 		logger::info("wheels: USE Equipment slot {} ({}) - {} ({}); the radial closes on nothing, then the game's own quick key {} is pressed",
 			a_slot + 1, a_how, inventory::NameOf(id), inventory::Describe(g_use.before), a_slot + 1);
 	}
-
-	std::string LastUse() { return g_lastUse; }
 
 	bool StaysOpenAfterUse(int a_slot)
 	{
@@ -1887,31 +1833,4 @@ if (Active() == Wheel::kAmmo && !(settings::Get().ammoWheel)) {
 		ShowMagic(false);
 	}
 
-	std::array<std::string, 8> Describe(Wheel a_wheel)
-	{
-		std::array<std::string, 8> out;
-		if (!EnsureLoaded()) {
-			return out;
-		}
-		const int w = a_wheel == Wheel::kMagic ? kMagic : a_wheel == Wheel::kAmmo ? kAmmo : kEquip;
-		for (int s = 0; s < inventory::kSlots; ++s) {
-			const Slot& slot = g_wheels[w][s];
-			for (int i = 0; i < static_cast<int>(slot.entries.size()); ++i) {
-				out[s] += (i ? ", " : "") + NameOf(w, slot.entries[i]) + (i == slot.active ? "*" : "");
-			}
-		}
-		return out;
-	}
-
-	std::string Status()
-	{
-		int equip = 0, magic = 0, ammo = 0;
-		for (int s = 0; s < inventory::kSlots; ++s) {
-			equip += static_cast<int>(g_wheels[kEquip][s].entries.size());
-			magic += static_cast<int>(g_wheels[kMagic][s].entries.size());
-			ammo += static_cast<int>(g_wheels[kAmmo][s].entries.size());
-		}
-		return std::format("character {}; Equipment {} entries, Magic {} entries, Ammo {} entries; pictures show {}", g_loadedFor.empty() ? "-" : g_loadedFor, equip,
-			magic, ammo, g_shown == Shown::kGame ? "the game's keys" : g_shown == Shown::kMagic ? "the Magic wheel" : "the Equipment wheel");
-	}
 }

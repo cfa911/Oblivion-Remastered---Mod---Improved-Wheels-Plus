@@ -47,5 +47,4 @@ namespace rows
 	std::uint32_t             MagicRowSpell(UE::UObject* a_row);
 	bool                      TakeMagicRowsChanged();
 
-	std::string Status();                   // for the self-check
 }

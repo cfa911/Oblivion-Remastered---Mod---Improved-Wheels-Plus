@@ -270,7 +270,7 @@ namespace pad
 				const auto spells = wheels::MagicSlots();
 				for (int s = 0; s < 8; ++s) filled[static_cast<std::size_t>(s)] = spells[static_cast<std::size_t>(s)] != 0;
 			} else if (wheels::Active() == wheels::Wheel::kAmmo) {
-				const auto arrows = wheels::AmmoRingSlots();
+				const auto arrows = wheels::AmmoSlots();
 				for (int s = 0; s < 8; ++s) filled[static_cast<std::size_t>(s)] = arrows[static_cast<std::size_t>(s)] != 0;
 			} else {
 				const auto keys = inventory::Keys();

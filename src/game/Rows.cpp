@@ -996,10 +996,4 @@ namespace rows
 		return n && *n ? std::string(n) : std::format("0x{:08X}", a_formID);
 	}
 
-	std::string Status()
-	{
-		return std::format("reflection {}; inventory rows {}; magic rows {}; icons known: {} items, {} spells",
-			reflect::Ok() ? "proven" : "NOT proven", g_inventory.rowClass ? "watched" : "not loaded yet", g_magic.rowClass ? "watched" : "not loaded yet",
-			g_itemIcons.size(), g_spellIcons.size());
-	}
 }

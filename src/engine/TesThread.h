@@ -27,13 +27,4 @@ namespace testhread
 	bool Installed();
 	void Post(Task a_task);   // drops work if the character context is unavailable or changed before dispatch
 	void SetPerPass(void (*a_fn)());   // called on the TES thread at the end of every pass of the main loop (keep it tiny); one function
-
-	struct Status
-	{
-		bool          installed;
-		std::uint32_t thread;   // the id the detour first ran on (0 until it has)
-		std::uint64_t calls;
-		std::size_t   queued;
-	};
-	Status GetStatus();
 }

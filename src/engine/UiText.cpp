@@ -38,17 +38,6 @@ namespace uix
 		return true;
 	}
 
-	std::string GetText(UE::UObject* a_widget)
-	{
-		ui::Call c(a_widget, L"GetText");
-		void*    ret = c ? c.At("ReturnValue") : nullptr;
-		if (!ret || !c.Run()) return {};
-		auto*       ft = static_cast<UE::FText*>(ret);
-		std::string out = reflect::Text(*ft);
-		ft->~FText();
-		return out;
-	}
-
 	namespace
 	{
 		bool Apply(UE::UObject* a_w, double a_size, const float* a_outline, int a_outlineSize = 1)
@@ -99,9 +88,4 @@ namespace uix
 	}
 
 
-	bool ApplyPrefabFont(UE::UObject* a_label)
-	{
-		auto* inner = a_label ? ui::FindInTree(a_label, "text_block") : nullptr;
-		return inner && ApplyFont(inner, 0);
-	}
 }

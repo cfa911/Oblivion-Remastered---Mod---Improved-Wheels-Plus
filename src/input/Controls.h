@@ -20,13 +20,4 @@
 namespace controls
 {
 	void Tick();   // every ~200 ms from the frame callback
-
-	struct Status
-	{
-		bool        actionCreated = false;
-		bool        rowAdded = false;
-		std::string boundKey;   // the Gamepad_ key our action has now
-		std::string problem;
-	};
-	Status GetStatus();
 }

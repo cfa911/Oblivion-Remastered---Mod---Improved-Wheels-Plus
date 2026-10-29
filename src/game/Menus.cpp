@@ -15,7 +15,6 @@ namespace menus
 		std::atomic<bool>        g_inventoryActive{ false };
 		std::atomic<bool>        g_magicActive{ false };
 
-		reflect::Handle g_inventoryWidget, g_magicWidget;   // the menu widgets last activated (game thread)
 
 		std::atomic<ULONGLONG> g_lastClosed{ 0 };
 		std::atomic<UE::UFunction*> g_fnActivated{ nullptr };
@@ -50,7 +49,6 @@ namespace menus
 			auto* cls = a_obj->GetClass();
 			auto& flag = cls == g_inventoryClass.load() ? g_inventoryActive : g_magicActive;
 			flag.store(activated);
-			if (activated) (cls == g_inventoryClass.load() ? g_inventoryWidget : g_magicWidget) = reflect::Hold(a_obj);
 			logger::info("menus: {} {}", cls == g_inventoryClass.load() ? "inventory" : "magic menu", activated ? "activated" : "deactivated");
 		}
 
@@ -118,23 +116,4 @@ namespace menus
 		}
 	}
 
-	UE::UClass* ClassOf(Menu a_menu)
-	{
-		return a_menu == Menu::kMagic ? g_magicClass.load() : a_menu == Menu::kInventory ? g_inventoryClass.load() : nullptr;
-	}
-
-	UE::UObject* Widget(Menu a_menu)
-	{
-		reflect::Handle& h = a_menu == Menu::kMagic ? g_magicWidget : g_inventoryWidget;
-		if (a_menu != Menu::kMagic && a_menu != Menu::kInventory) return nullptr;
-		if (auto* w = reflect::Get(h)) return w;
-		// opened before the class was watched: the live instance of the class
-		if (auto* cls = ClassOf(a_menu)) {
-			for (auto* o : reflect::Instances(cls)) {
-				h = reflect::Hold(o);
-				return o;
-			}
-		}
-		return nullptr;
-	}
 }

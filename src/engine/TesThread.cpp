@@ -115,9 +115,4 @@ namespace testhread
 		});
 	}
 
-	Status GetStatus()
-	{
-		std::scoped_lock l(g_lock);
-		return { g_target != nullptr, g_thread.load(), g_calls.load(), g_tasks.size() };
-	}
 }
