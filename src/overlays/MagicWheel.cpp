@@ -322,8 +322,6 @@ namespace magicwheel
 	{
 		// a message of the game over the wheel ("Do you want to poison your next shot"): our counters and centre name, drawn above it, would
 		// ghost through its paper, so they wait until it is answered (the owner's screenshot, 2026-10-22)
-		const bool messageUp = quickkeys::GameMessageUp(false);
-		if (messageUp) slotcounts::Hide();
 		const auto menu = menus::Active();
 		const bool radial = quickkeys::RadialOpen();
 		const bool magic = (radial && wheels::Active() == wheels::Wheel::kMagic) || (menu == menus::Menu::kMagic && quickkeys::MagicPanelUp());
@@ -333,12 +331,14 @@ namespace magicwheel
 		const bool ammoView = (radial && wheels::Active() == wheels::Wheel::kAmmo) ||
 			(equipPanel && wheels::AssignmentWheel(menu) == wheels::Wheel::kAmmo);                      // the radial's third view
 		if (ammoView && !wheel) wheel = quickkeys::VisibleWheel();
+		const bool messageUp = wheel && quickkeys::GameMessageUp(false);
+		if (messageUp) slotcounts::Hide();
 		if ((magic || equipPanel || ammoView) && wheel) {
 			const int mode = ammoView ? 2 : equipPanel ? 1 : 0;
 			Show(wheel, mode);
 			if (auto* img = GameImage(wheel)) {
 				if (!messageUp) slotcounts::Show(img, mode == 2 ? wheels::Wheel::kAmmo : mode == 1 ? wheels::Wheel::kEquipment : wheels::Wheel::kMagic);   // "2/3" on each slot
-				if (mode == 2) ringoverlay::Hide(); else ringoverlay::Show(img, mode == 1 ? ringoverlay::Kind::kEquipment : ringoverlay::Kind::kMagic);   // Magic blue, Inventory red
+				if (mode == 2) ringoverlay::Hide(); else ringoverlay::Show(img, mode == 1 ? ringoverlay::Kind::kEquipment : ringoverlay::Kind::kMagic, messageUp);   // Magic blue, Inventory red
 			} else {
 				slotcounts::Hide();
 				ringoverlay::Hide();
@@ -350,7 +350,7 @@ namespace magicwheel
 			HideSpellKeys(wheel);
 			if (auto* img = GameImage(wheel)) {
 				if (!messageUp) slotcounts::Show(img);   // "3/5" on each slot
-				ringoverlay::Show(img, ringoverlay::Kind::kEquipment);   // the Equipment wheel is red
+				ringoverlay::Show(img, ringoverlay::Kind::kEquipment, messageUp);   // the Equipment wheel is red
 			} else {
 				slotcounts::Hide();
 				ringoverlay::Hide();

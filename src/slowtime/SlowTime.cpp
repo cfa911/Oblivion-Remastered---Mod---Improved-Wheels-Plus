@@ -32,8 +32,22 @@ namespace slowtime
 			lease.Forget(); // never write through a previous world's pointer
 			previousWorld = reflect::Hold(world);
 		}
-		auto* cls = ui::Class(L"/Script/Engine.GameplayStatics");
-		auto* cdo = cls ? cls->GetDefaultObject(false) : nullptr;
+		auto* data = RE::TESDataHandler::GetSingleton();
+		auto* player = RE::PlayerCharacter::GetSingleton();
+		auto* im = RE::InterfaceManager::GetInstance(false, false);
+		const bool ready = data && !data->saveLoadGame && !data->clearingData && !data->loadingFiles &&
+			player && !player->deadFlag && im && im->menuMode == 1;
+		const bool open = quickkeys::RadialOpen() || ammo::Open();
+		const bool wanted = ready && !quickkeys::PanelOpen() && g_close.Allows(open, quickkeys::OpenCount());
+		if (!wanted && !lease.OwnsTime()) {
+			lease.Update(false, 1.0f, 1.0f, [](float) { return true; });   // reset an external-writer block for the next opening
+			return;
+		}
+		static reflect::Handle gameplayClass;
+		auto* cls = reflect::Get(gameplayClass);
+		if (!cls) { cls = ui::Class(L"/Script/Engine.GameplayStatics"); gameplayClass = reflect::Hold(cls); }
+		auto* type = static_cast<UE::UClass*>(cls);
+		auto* cdo = type ? type->GetDefaultObject(false) : nullptr;
 		ui::Call get(cdo, L"GetGlobalTimeDilation");
 		ui::Call set(cdo, L"SetGlobalTimeDilation");
 		const bool valid = get && set && get.Size("WorldContextObject") == sizeof(void*) &&
@@ -44,13 +58,6 @@ namespace slowtime
 			if (!warned) { logger::warn("slow time: reflected time access unavailable; feature inactive"); warned = true; }
 			return;
 		}
-		auto* data = RE::TESDataHandler::GetSingleton();
-		auto* player = RE::PlayerCharacter::GetSingleton();
-		auto* im = RE::InterfaceManager::GetInstance(false, false);
-		const bool ready = data && !data->saveLoadGame && !data->clearingData && !data->loadingFiles &&
-			player && !player->deadFlag && im && im->menuMode == 1;
-		const bool open = quickkeys::RadialOpen() || ammo::Open();
-		const bool wanted = ready && !quickkeys::PanelOpen() && g_close.Allows(open, quickkeys::OpenCount());
 		lease.Update(wanted, get.Get<float>("ReturnValue"), settings::Get().slowTimePercent / 100.0f,
 			[&](float value) {
 				if (!set.Set("WorldContextObject", world) || !set.Set("TimeDilation", value) || !set.RunGuarded()) return false;

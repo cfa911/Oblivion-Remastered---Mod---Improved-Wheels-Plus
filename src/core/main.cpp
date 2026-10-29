@@ -95,7 +95,7 @@ OBSE_PLUGIN_LOAD(const OBSE::LoadInterface* a_obse)
 	testhread::SetSessionSource(&sessioncontext::Current);
 	{
 		const auto level = static_cast<spdlog::level::level_enum>(std::clamp(settings::Get().logLevel, 0, 4));
-		logger::set_level(level, level);
+		logger::set_level(level, logger::level::warn);
 	}
 	logger::info("Improved Wheel Menu {} loaded (Oblivion Remastered)", IWM_VERSION);
 

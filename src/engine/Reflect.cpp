@@ -1,6 +1,7 @@
 #include "engine/Reflect.h"
 
 #include "engine/PEHook.h"
+#include <unordered_map>
 
 namespace reflect
 {
@@ -11,19 +12,63 @@ namespace reflect
 		constexpr std::ptrdiff_t kPropertyOffsetInternal = 0x44;
 
 		std::atomic<int> g_state{ 0 };   // 0 unchecked, 1 proven, -1 failed
+
+		struct NameHash
+		{
+			using is_transparent = void;
+			std::size_t operator()(std::string_view a_name) const { return std::hash<std::string_view>{}(a_name); }
+		};
+		struct Field
+		{
+			const std::uint8_t* ptr;
+			UE::UStruct* owner;
+			std::int32_t ownerIndex;
+			void* ownerFirst;
+		};
+		struct KnownFields
+		{
+			std::int32_t index = -1;
+			void* first = nullptr;
+			UE::UStruct* parent = nullptr;
+			std::unordered_map<std::string, Field, NameHash, std::equal_to<>> byName;
+		};
+		thread_local std::unordered_map<UE::UStruct*, KnownFields> g_fields;
+	}
+
+	const std::uint8_t* FindField(UE::UStruct* a_struct, std::string_view a_name)
+	{
+		if (!a_struct) return nullptr;
+		auto& known = g_fields[a_struct];
+		if (known.index != a_struct->internalIndex || known.first != a_struct->childProperties || known.parent != a_struct->superStruct) {
+			known = { a_struct->internalIndex, a_struct->childProperties, a_struct->superStruct, {} };
+		}
+		if (auto it = known.byName.find(a_name); it != known.byName.end()) {
+			const auto& field = it->second;
+			// Check through the current hierarchy before reading the cached owner's metadata.
+			for (auto* s = a_struct; s; s = s->superStruct) {
+				if (s == field.owner && s->internalIndex == field.ownerIndex && s->childProperties == field.ownerFirst) return field.ptr;
+			}
+			known.byName.erase(it);
+		}
+		// Find never interns a new name. Misses remain retryable while classes link their fields.
+		const UE::FName wanted(std::string(a_name).c_str(), UE::EFindName::Find);
+		if (wanted.IsNone()) return nullptr;
+		for (UE::UStruct* s = a_struct; s; s = s->superStruct) {
+			for (auto* f = reinterpret_cast<std::uint8_t*>(s->childProperties); f; f = *reinterpret_cast<std::uint8_t**>(f + kFieldNext)) {
+				const auto& name = *reinterpret_cast<const UE::FName*>(f + kFieldName);
+				if (name == wanted) {
+					known.byName.emplace(std::string(a_name), Field{ f, s, s->internalIndex, s->childProperties });
+					return f;
+				}
+			}
+		}
+		return nullptr;
 	}
 
 	std::int32_t Offset(UE::UStruct* a_struct, std::string_view a_name)
 	{
-		for (UE::UStruct* s = a_struct; s; s = s->superStruct) {
-			for (auto* f = reinterpret_cast<std::uint8_t*>(s->childProperties); f; f = *reinterpret_cast<std::uint8_t**>(f + kFieldNext)) {
-				const auto& name = *reinterpret_cast<const UE::FName*>(f + kFieldName);
-				if (pe::Utf8(name.ToString()) == a_name) {
-					return *reinterpret_cast<const std::int32_t*>(f + kPropertyOffsetInternal);
-				}
-			}
-		}
-		return -1;
+		const auto* field = FindField(a_struct, a_name);
+		return field ? *reinterpret_cast<const std::int32_t*>(field + kPropertyOffsetInternal) : -1;
 	}
 
 	std::vector<std::pair<std::string, std::int32_t>> Fields(UE::UStruct* a_struct)

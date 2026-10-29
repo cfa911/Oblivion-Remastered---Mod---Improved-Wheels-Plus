@@ -1,3 +1,4 @@
+#include "core/ReadMemo.h"
 #include "game/QuickKeys.h"
 #include "game/MessageDiscovery.h"
 
@@ -59,6 +60,12 @@ namespace quickkeys
 		// The one transient view model instance (not the class default object) - found by walking the object array.
 		UE::UObject* FindViewModel(UE::UClass* a_class)
 		{
+			static thread_local ULONGLONG retryAt = 0;
+			static thread_local UE::UClass* previousClass = nullptr;
+			const auto now = GetTickCount64();
+			if (a_class == previousClass && now < retryAt) return nullptr;
+			previousClass = a_class;
+			retryAt = now + 100;   // a missing instance must not trigger a whole-array scan every read
 			auto* arr = UE::FUObjectArray::GetSingleton();
 			if (!arr || !a_class) {
 				return nullptr;
@@ -77,6 +84,7 @@ namespace quickkeys
 				}
 			}
 			arr->UnlockInternalArray();
+			if (found) retryAt = 0;
 			return found;
 		}
 
@@ -342,7 +350,7 @@ namespace quickkeys
 		}
 	}
 
-	UE::UObject* WheelImage(UE::UObject* a_wheel, UE::UObject** a_material)
+	static UE::UObject* FindWheelImage(UE::UObject* a_wheel, UE::UObject** a_material)
 	{
 		auto* material = a_wheel ? ui::ChildNamed(a_wheel, L"quickKeys_material") : nullptr;
 		if (!material && a_wheel) material = ui::FindInTree(a_wheel, "quickKeys_material");
@@ -350,6 +358,19 @@ namespace quickkeys
 		if (!img && material) img = ui::FindInTree(material, "Image");
 		if (a_material) *a_material = material;
 		return img;
+	}
+
+	UE::UObject* WheelImage(UE::UObject* a_wheel, UE::UObject** a_material)
+	{
+		struct Image { reflect::Handle image; reflect::Handle material; };
+		static thread_local readmemo::Memo<UE::UObject*, Image> memo;
+		const auto found = memo.Get(a_wheel, [&] {
+			UE::UObject* material = nullptr;
+			auto* image = FindWheelImage(a_wheel, &material);
+			return Image{ reflect::Hold(image), reflect::Hold(material) };
+		});
+		if (a_material) *a_material = reflect::Get(found.material);
+		return reflect::Get(found.image);
 	}
 
 	void ClearPointer()
@@ -546,7 +567,7 @@ namespace quickkeys
 
 	bool AnyWheelVisible() { return VisibleWheel() != nullptr; }
 
-	UE::UObject* VisibleWheel()
+	static UE::UObject* FindVisibleWheel()
 	{
 		// the wheel widgets, found by a whole-array scan at most every 2 s and kept by their slots
 		static std::vector<reflect::Handle> s_known;
@@ -573,6 +594,12 @@ namespace quickkeys
 			}
 		}
 		return nullptr;
+	}
+
+	UE::UObject* VisibleWheel()
+	{
+		static thread_local readmemo::Memo<int, UE::UObject*> memo;
+		return memo.Get(0, [] { return FindVisibleWheel(); });
 	}
 
 	int PointedSlot()

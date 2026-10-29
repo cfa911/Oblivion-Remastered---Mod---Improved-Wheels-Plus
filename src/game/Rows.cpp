@@ -1,3 +1,4 @@
+#include "core/ReadMemo.h"
 #include "game/Rows.h"
 #include "core/TextUtil.h"
 
@@ -40,6 +41,7 @@ namespace rows
 		std::unordered_map<std::uint32_t, reflect::Handle> g_itemIcons, g_spellIcons;   // resolved through the slot when asked
 		std::unordered_map<std::string, std::uint32_t> g_spellsByName;
 		bool g_dirty = true;   // a row changed since the caches were last filled
+		std::uint64_t g_rowGeneration = 0;
 		std::atomic<bool> g_rowsChanged{ true };
 		std::atomic<bool> g_magicRowsChanged{ true };   // the same for the magic menu's rows   // an inventory row fired an event since the favourites column last looked
 
@@ -223,6 +225,7 @@ namespace rows
 
 		void OnRow(Kind& a_kind, UE::UObject* a_obj, UE::UFunction* a_fn, void* a_params)
 		{
+			++g_rowGeneration;
 			a_kind.seen.insert_or_assign(a_obj, a_obj->internalIndex);   // live: the engine is calling it now
 			g_dirty = true;
 			if (!a_kind.fnSelection && pe::FunctionName(a_fn) == "BP_OnItemSelectionChanged") {
@@ -485,11 +488,10 @@ namespace rows
 	std::uint32_t HighlightedItem()
 	{
 		Harvest();
-		auto*      row = reflect::Get(g_inventory.highlighted);   // gone after a drop or a close: no item
-		const auto id = FormOfInventoryRow(row);
-		logger::info("rows: highlighted inventory row: {} ({})", row ? NameOfRow(g_inventory, row) : std::string("(gone)"),
-			id ? std::format("0x{:08X}", id) : "no item");
-		return id;
+		auto* row = reflect::Get(g_inventory.highlighted);   // gone after a drop or a close: no item
+		using Key = std::pair<UE::UObject*, std::uint64_t>;
+		static thread_local readmemo::Memo<Key, std::uint32_t> memo;
+		return memo.Get({ row, g_rowGeneration }, [&] { return FormOfInventoryRow(row); });
 	}
 
 	std::uint32_t HighlightedPlayerItemInContainer()

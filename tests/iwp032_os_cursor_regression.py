@@ -58,7 +58,7 @@ bool PanelUp(menus::Menu) { return panel; }
 struct Script { enum Kind { kNone, kClick } kind; int a; int b; bool c; ULONGLONG t; } g_script{ Script::kNone, 0, 0, false, 0 };
 namespace quickkeys {
 int PointedSlot() { return selected + 1; }
-bool GameMessageUp() { return msg; }
+bool GameMessageUp(bool = true) { return msg; }
 bool RadialOpen() { return false; }
 void Repoint(int n) { selected = n; ++repoints; }
 }

@@ -20,7 +20,7 @@ namespace pe
 	bool WatchPost(UE::UClass* a_class, Handler a_handler);
 
 	// The UFunction's name, UTF-8 (cheap enough for a learn-once compare per UFunction pointer).
-	std::string FunctionName(UE::UFunction* a_fn);
+	const std::string& FunctionName(UE::UFunction* a_fn);
 
 	std::string Utf8(const UE::FString& a_s);
 	std::string NameOf(const UE::FName& a_name);   // UTF-8

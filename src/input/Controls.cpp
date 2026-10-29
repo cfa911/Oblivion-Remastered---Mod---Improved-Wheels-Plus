@@ -1,4 +1,5 @@
 #include "input/Controls.h"
+#include "core/FunctionClassCache.h"
 
 #include "game/Menus.h"
 #include "engine/PEHook.h"
@@ -126,6 +127,7 @@ namespace controls
 		// (Keyboard.cpp) replace them, so a digit no longer opens the radial or assigns to the game's own key storage
 		int UnbindNativeQuickKeys()
 		{
+			static thread_local FunctionClassCache<UE::UObject*, std::pair<int, std::uint64_t>, bool> quickActions;
 			// the keyboard quick keys are not in IMC_Game_Default (nothing of that name was found there): every mapping context the
 			// game has loaded is looked through
 			const auto m = Mappings();
@@ -142,7 +144,9 @@ namespace controls
 				for (std::int32_t i = 0; i < arr->num; ++i) {
 					const std::uint8_t* e = arr->data + static_cast<std::ptrdiff_t>(i) * m.size;
 					auto* act = *reinterpret_cast<UE::UObject* const*>(e + m.action);
-					if (act && pe::NameOf(act).starts_with("IA_Game_QuickKeys_Keyboard_") && std::find(actions.begin(), actions.end(), act) == actions.end()) {
+					if (act && quickActions.Get(act, { act->internalIndex, act->GetFName().ToUnstableInt() },
+						[&] { return pe::NameOf(act).starts_with("IA_Game_QuickKeys_Keyboard_"); }) &&
+						std::find(actions.begin(), actions.end(), act) == actions.end()) {
 						actions.push_back(act);
 					}
 				}
