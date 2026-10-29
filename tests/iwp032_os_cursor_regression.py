@@ -1,12 +1,14 @@
 """IWP-032: with the assign panel open the game's GetMousePosition stays frozen while the Windows cursor moves
 (synchronized log, 2026-10-28). Hover and click on the panel must follow the Windows cursor.
-Runs the production hover and click blocks of src/Keyboard.cpp with stubbed game calls."""
+Runs the production hover and click blocks of src/input/Keyboard.cpp with stubbed game calls."""
 import pathlib
 import subprocess
 import tempfile
 
+from source_paths import KEYBOARD
+
 root = pathlib.Path(__file__).resolve().parents[1]
-source = (root / "src/Keyboard.cpp").read_text(encoding="utf-8")
+source = KEYBOARD.read_text(encoding="utf-8")
 
 
 def cut(start, end):
