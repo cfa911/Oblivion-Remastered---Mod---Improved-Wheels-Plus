@@ -51,6 +51,9 @@ namespace quickkeys
 	// change through ProcessEvent, so in the magic menu this is how its panel is known to be up. Game thread.
 	bool AnyWheelVisible();
 	UE::UObject* VisibleWheel();   // the first wheel widget whose own visibility says shown, or nullptr
+	// the wheel's picture inside a wheel widget: quickKeys_material > Image (drawn by a MaterialInstanceDynamic of
+	// kWheelMaterial); a_material, when given, receives the quickKeys_material widget. nullptr when not found
+	UE::UObject* WheelImage(UE::UObject* a_wheel, UE::UObject** a_material = nullptr);
 	bool Animating();         // the wheel changed visibility within the last ~0.9 s: it is popping up or out, so overlays follow it every read
 	void BoostAnimations();   // every read: while the wheel is opening or closing, its widget animations play faster (INI uAnimSpeedPercent)
 	int  PointedSlot();  // the slot under the pointer on whichever is showing, -1 for none

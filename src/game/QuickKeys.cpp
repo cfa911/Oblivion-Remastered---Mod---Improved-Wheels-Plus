@@ -335,14 +335,21 @@ namespace quickkeys
 
 		UE::UObject* WheelMid(UE::UObject* a_wheel)
 		{
-			auto* material = ui::ChildNamed(a_wheel, L"quickKeys_material");
-			if (!material) material = ui::FindInTree(a_wheel, "quickKeys_material");
-			auto* img = material ? ui::ChildNamed(material, L"Image") : nullptr;
-			if (!img && material) img = ui::FindInTree(material, "Image");
+			auto* img = WheelImage(a_wheel);
 			static auto* midClass = ui::Class(L"/Script/Engine.MaterialInstanceDynamic");
 			auto* mid = img ? ui::BrushResource(img) : nullptr;
 			return mid && midClass && mid->GetClass() == midClass ? mid : nullptr;
 		}
+	}
+
+	UE::UObject* WheelImage(UE::UObject* a_wheel, UE::UObject** a_material)
+	{
+		auto* material = a_wheel ? ui::ChildNamed(a_wheel, L"quickKeys_material") : nullptr;
+		if (!material && a_wheel) material = ui::FindInTree(a_wheel, "quickKeys_material");
+		auto* img = material ? ui::ChildNamed(material, L"Image") : nullptr;
+		if (!img && material) img = ui::FindInTree(material, "Image");
+		if (a_material) *a_material = material;
+		return img;
 	}
 
 	void ClearPointer()

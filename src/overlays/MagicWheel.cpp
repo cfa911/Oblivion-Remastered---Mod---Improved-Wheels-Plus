@@ -44,10 +44,8 @@ namespace magicwheel
 		// MaterialInstanceDynamic of MIC_UI_QuickKeys)
 		UE::UObject* GameImage(UE::UObject* a_wheel)
 		{
-			auto* material = ui::ChildNamed(a_wheel, L"quickKeys_material");
-			if (!material) material = ui::FindInTree(a_wheel, "quickKeys_material");
-			auto* img = material ? ui::ChildNamed(material, L"Image") : nullptr;
-			if (!img && material) img = ui::FindInTree(material, "Image");
+			UE::UObject* material = nullptr;
+			auto*        img = quickkeys::WheelImage(a_wheel, &material);
 			static bool logged = false;
 			if (!logged) {
 				logged = true;

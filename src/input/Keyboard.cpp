@@ -292,10 +292,7 @@ namespace keyboard
 		{
 			auto* wheel = quickkeys::VisibleWheel();
 			if (!wheel) return -1;
-			auto* material = ui::ChildNamed(wheel, L"quickKeys_material");
-			if (!material) material = ui::FindInTree(wheel, "quickKeys_material");
-			auto* image = material ? ui::ChildNamed(material, L"Image") : nullptr;
-			if (!image && material) image = ui::FindInTree(material, "Image");
+			auto* image = quickkeys::WheelImage(wheel);
 			double x = 0, y = 0, w = 0, h = 0;
 			if (!image || !ui::Measure(image, x, y, w, h)) return -1;
 			const double half = w * 0.5, cx = x + half, cy = y + h * 0.5;
