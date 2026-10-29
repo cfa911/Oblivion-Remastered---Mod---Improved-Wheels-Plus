@@ -18,6 +18,9 @@
 
 namespace quickkeys
 {
+	// the wheel's own material (its eight slot pictures, the selector and its arrow are parameters of it)
+	constexpr const wchar_t* kWheelMaterial = L"/Game/UI/Materials/QuickKeys/MIC_UI_QuickKeys.MIC_UI_QuickKeys";
+
 	enum class Event
 	{
 		kOpened,        // the HUD radial appeared

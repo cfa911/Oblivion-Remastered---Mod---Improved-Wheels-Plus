@@ -349,6 +349,22 @@ namespace ui
 		c.Set("Value", a_texture);
 		c.Run();
 	}
+
+	UE::UObject* MakeMaterialInstance(UE::UObject* a_parent)
+	{
+		static auto* mlib = Class(L"/Script/Engine.KismetMaterialLibrary");
+		Call c(mlib ? mlib->GetDefaultObject(false) : nullptr, L"CreateDynamicMaterialInstance");
+		c.Set("WorldContextObject", PlayerController());
+		c.Set("Parent", a_parent);
+		return c.RunGuarded() ? c.Get<UE::UObject*>("ReturnValue") : nullptr;
+	}
+
+	bool SetBrushMaterial(UE::UObject* a_image, UE::UObject* a_material)
+	{
+		Call b(a_image, L"SetBrushFromMaterial");
+		b.Set("Material", a_material);
+		return b.Run();
+	}
 }
 
 namespace ui

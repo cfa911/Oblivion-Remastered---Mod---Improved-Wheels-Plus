@@ -15,7 +15,6 @@ namespace magicwheel
 {
 	namespace
 	{
-		constexpr const wchar_t* kWheelMic = L"/Game/UI/Materials/QuickKeys/MIC_UI_QuickKeys.MIC_UI_QuickKeys";
 
 		// ours
 		reflect::Handle g_root, g_img, g_imgSlot, g_mid;
@@ -104,21 +103,15 @@ namespace magicwheel
 			auto* img = reflect::Get(g_img);
 			if (!img) return nullptr;
 			auto* parent = a_gameMid ? ParentOf(a_gameMid) : nullptr;
-			if (!parent) parent = ui::Load(kWheelMic);
+			if (!parent) parent = ui::Load(quickkeys::kWheelMaterial);
 			auto* mid = reflect::Get(g_mid);
 			if (mid && parent == g_midParent && ui::BrushResource(img) == mid) return mid;
-			static auto* mlib = ui::Class(L"/Script/Engine.KismetMaterialLibrary");
-			ui::Call c(mlib ? mlib->GetDefaultObject(false) : nullptr, L"CreateDynamicMaterialInstance");
-			c.Set("WorldContextObject", ui::PlayerController());
-			c.Set("Parent", parent);
-			mid = parent && c.RunGuarded() ? c.Get<UE::UObject*>("ReturnValue") : nullptr;
+			mid = parent ? ui::MakeMaterialInstance(parent) : nullptr;
 			if (!mid) {
 				logger::warn("magic wheel: its material instance could not be made (parent {})", NameOf(parent));
 				return nullptr;
 			}
-			ui::Call b(img, L"SetBrushFromMaterial");
-			b.Set("Material", mid);
-			b.Run();
+			ui::SetBrushMaterial(img, mid);
 			g_mid = reflect::Hold(mid);
 			g_midParent = parent;
 			g_tex.fill(nullptr);

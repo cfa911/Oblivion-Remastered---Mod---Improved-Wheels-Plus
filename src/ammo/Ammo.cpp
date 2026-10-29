@@ -3,6 +3,7 @@
 #include "engine/UiText.h"
 
 #include "game/Inventory.h"
+#include "game/QuickKeys.h"
 #include "engine/PEHook.h"
 #include "engine/Reflect.h"
 #include "game/Rows.h"
@@ -43,7 +44,6 @@ namespace ammo
 		// clipped just past the wheel's middle, keeps the left five slots whole: 1 at the top, 8, 7 at the left, 6, 5 at the
 		// bottom (slot n sits 45 * (n - 1) degrees clockwise from the top). The arrows go into those slots' textures, the
 		// game's own selector points at the chosen one. The drawn circles below stay as the fallback.
-		constexpr const wchar_t* kWheelMic = L"/Game/UI/Materials/QuickKeys/MIC_UI_QuickKeys.MIC_UI_QuickKeys";
 		constexpr double         kOverhang = 0.14;   // past the middle, in wheel radii: the top and bottom slots stay whole
 		constexpr int            kHalfSlots = 5;
 		constexpr float          kHiddenSelector = 2.0f / 8.0f;   // slot 3, straight right: outside the half that shows
@@ -74,52 +74,20 @@ namespace ammo
 			return a;
 		}
 
-		void MidScalar(UE::UObject* a_mid, const wchar_t* a_name, float a_v)
-		{
-			ui::Call c(a_mid, L"SetScalarParameterValue");
-			c.Set("ParameterName", UE::FName(a_name, UE::EFindName::Add));
-			c.Set("Value", a_v);
-			c.Run();
-		}
-
-		void MidTexture(UE::UObject* a_mid, const wchar_t* a_name, UE::UObject* a_tex)
-		{
-			ui::Call c(a_mid, L"SetTextureParameterValue");
-			c.Set("ParameterName", UE::FName(a_name, UE::EFindName::Add));
-			c.Set("Value", a_tex);
-			c.Run();
-		}
 		// A dynamic instance of the wheel's material on a_image: every slot empty, the selector on the hidden half. The
 		// caches of what was written are reset, so the next draw writes everything again.
 		UE::UObject* MakeMid(UE::UObject* a_image, UE::UObject* a_mic)
 		{
-			static auto* mlib = ui::Class(L"/Script/Engine.KismetMaterialLibrary");
-			ui::Call c(mlib ? mlib->GetDefaultObject(false) : nullptr, L"CreateDynamicMaterialInstance");
-			c.Set("WorldContextObject", ui::PlayerController());
-			c.Set("Parent", a_mic);
-			auto* mid = c.RunGuarded() ? c.Get<UE::UObject*>("ReturnValue") : nullptr;
+			auto* mid = ui::MakeMaterialInstance(a_mic);
 			if (!mid || !a_image) return nullptr;
-			ui::Call b(a_image, L"SetBrushFromMaterial");
-			b.Set("Material", mid);
-			if (!b.Run()) return nullptr;
-			for (int k = 1; k <= 8; ++k) MidScalar(mid, (L"ID" + std::to_wstring(k) + L"_Opacity").c_str(), 0.0f);
-			MidScalar(mid, L"SelectorArrowAlpha", 0.0f);
-			MidScalar(mid, L"SelectorRotator", kHiddenSelector);
+			if (!ui::SetBrushMaterial(a_image, mid)) return nullptr;
+			for (int k = 1; k <= 8; ++k) ui::SetMidScalar(mid, (L"ID" + std::to_wstring(k) + L"_Opacity").c_str(), 0.0f);
+			ui::SetMidScalar(mid, L"SelectorArrowAlpha", 0.0f);
+			ui::SetMidScalar(mid, L"SelectorRotator", kHiddenSelector);
 			g_midTex = {};
 			g_midOpacity.fill(-1.0f);
 			g_midPointed = -2;
 			return mid;
-		}
-
-		// what the wheel's image draws now: its brush's ResourceObject (rule 30 - asked of the object, not assumed)
-		UE::UObject* DrawnResource(UE::UObject* a_image)
-		{
-			static auto* brushStruct = reinterpret_cast<UE::UStruct*>(UE::StaticFindObject<UE::UObject>(nullptr, nullptr, L"/Script/SlateCore.SlateBrush"));
-			if (!a_image || !brushStruct) return nullptr;
-			const auto brushOff = reflect::Offset(reinterpret_cast<UE::UStruct*>(a_image->GetClass()), "Brush");
-			const auto resOff = reflect::Offset(brushStruct, "ResourceObject");
-			if (brushOff < 0 || resOff < 0) return nullptr;
-			return *reinterpret_cast<UE::UObject* const*>(reinterpret_cast<const std::uint8_t*>(a_image) + brushOff + resOff);
 		}
 
 		// On every open: the image must still draw OUR instance (the owner, 2026-09-30: no arrows and "box number eight is
@@ -130,9 +98,9 @@ namespace ammo
 			if (!g_material) return;
 			auto* img = reflect::Get(g_wheelImg);
 			auto* mid = reflect::Get(g_mid);
-			auto* drawn = DrawnResource(img);
+			auto* drawn = ui::BrushResource(img);
 			if (img && mid && drawn == mid) return;
-			auto* mic = ui::Load(kWheelMic);
+			auto* mic = ui::Load(quickkeys::kWheelMaterial);
 			auto* made = img && mic ? MakeMid(img, mic) : nullptr;
 			g_mid = made ? reflect::Hold(made) : reflect::Handle{};
 			logger::warn("ammo: the wheel's material instance was {} (its image draws {}) - {}", mid ? "not the one drawn" : "gone",
@@ -252,7 +220,7 @@ namespace ammo
 			g_midOpacity.fill(-1.0f);
 			g_midPointed = -2;
 			g_wheelImg = {};
-			if (auto* mic = ui::Load(kWheelMic)) {
+			if (auto* mic = ui::Load(quickkeys::kWheelMaterial)) {
 				UE::UObject* ws = nullptr;
 				auto* wheelImg = ui::AddToCanvas(panel, L"/Script/UMG.Image", (L"IwmAmmoWheel" + n).c_str(), &ws);
 				if (wheelImg && ws) {
@@ -398,12 +366,12 @@ namespace ammo
 			for (int k = 1; k <= 8; ++k) {
 				auto* t = tex[static_cast<std::size_t>(k)];
 				if (t && t != g_midTex[static_cast<std::size_t>(k)]) {
-					MidTexture(mid, (L"ID" + std::to_wstring(k) + L"Texture").c_str(), t);
+					ui::SetMidTexture(mid, (L"ID" + std::to_wstring(k) + L"Texture").c_str(), t);
 					g_midTex[static_cast<std::size_t>(k)] = t;
 				}
 				const float op = t ? 1.0f : 0.0f;
 				if (op != g_midOpacity[static_cast<std::size_t>(k)]) {
-					MidScalar(mid, (L"ID" + std::to_wstring(k) + L"_Opacity").c_str(), op);
+					ui::SetMidScalar(mid, (L"ID" + std::to_wstring(k) + L"_Opacity").c_str(), op);
 					g_midOpacity[static_cast<std::size_t>(k)] = op;
 				}
 			}
@@ -412,8 +380,8 @@ namespace ammo
 				const int slot = g_pointed >= 0 && g_pointed < kSlots ? g_entryId[static_cast<std::size_t>(g_pointed)] : 0;
 				// nothing pointed (or an empty wheel): the selector goes to slot 3, in the clipped-off right half - the
 				// material's own default lights slot 8 (the owner, 2026-09-30: "box number eight is highlighted permanently")
-				MidScalar(mid, L"SelectorRotator", slot >= 1 ? static_cast<float>(slot - 1) / 8.0f : kHiddenSelector);
-				MidScalar(mid, L"SelectorArrowAlpha", slot >= 1 ? 1.0f : 0.0f);
+				ui::SetMidScalar(mid, L"SelectorRotator", slot >= 1 ? static_cast<float>(slot - 1) / 8.0f : kHiddenSelector);
+				ui::SetMidScalar(mid, L"SelectorArrowAlpha", slot >= 1 ? 1.0f : 0.0f);
 				g_midPointed = g_pointed;
 			}
 			SetLabel(g_pointed >= 0 && g_ids[g_pointed] ? inventory::NameOf(g_ids[g_pointed]) : std::string(" "));
