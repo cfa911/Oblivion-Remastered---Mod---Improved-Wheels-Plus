@@ -35,6 +35,19 @@ namespace keyboard
 		std::atomic<ULONGLONG> g_nativeWheelAt{ 0 };
 		bool g_nativeWheelSeen = false;
 
+		int NativeWheelKey()
+		{
+			const int key = settings::Get().keyboard.nativeWheelKey;
+			return key ? key : 'R';
+		}
+
+		LPARAM NativeKeyData(bool down)
+		{
+			const auto scan = MapVirtualKeyW(NativeWheelKey(), MAPVK_VK_TO_VSC_EX);
+			return static_cast<LPARAM>(1u | ((scan & 0xffu) << 16) |
+				((scan & 0xff00u) ? (1u << 24) : 0u) | (down ? 0u : 0xc0000000u));
+		}
+
 		LRESULT ForwardMessage(HWND window, UINT message, WPARAM key, LPARAM data)
 		{
 			const auto previous = g_previousWindowProc;   // null after the hook was taken off: the default procedure then
@@ -61,17 +74,24 @@ namespace keyboard
 			}
 			// Preserve the native keyboard press across the physical key release. No game objects are touched here.
 			if (message == g_releaseWheelMessage && g_releaseWheelMessage != 0) {
-				return ForwardMessage(window, WM_KEYUP, 'R', static_cast<LPARAM>(0xC0130001));
+				// Private messages reach the original window procedure on its owning thread.
+				// Drop a queued press after focus loss/cancellation, but always deliver the release.
+				if (key && (!g_nativeWheelHeld || GetForegroundWindow() != window)) return 0;
+				return ForwardMessage(window, key ? WM_KEYDOWN : WM_KEYUP, NativeWheelKey(), NativeKeyData(key != 0));
 			}
 			if (message == WM_KILLFOCUS || (message == WM_ACTIVATEAPP && key == FALSE)) {
+				if (g_nativeWheelHeld.exchange(false)) {
+					ForwardMessage(window, WM_KEYUP, NativeWheelKey(), NativeKeyData(false));
+				}
 				g_nativeWheelAllowed = false;
 				g_nativeWheelHeld = false;
 				g_nativeWheelStarted = false;
 				g_nativeWheelCancel = false;
 				g_suppressPhysicalRUp = false;
 			}
-			if (key == 'R' && message == WM_KEYUP && g_suppressPhysicalRUp.exchange(false)) return 0;
-			if (key == 'R' && message == WM_KEYDOWN) {
+			const bool physicalNativeKey = settings::Get().keyboard.lb == NativeWheelKey();
+			if (physicalNativeKey && key == NativeWheelKey() && message == WM_KEYUP && g_suppressPhysicalRUp.exchange(false)) return 0;
+			if (physicalNativeKey && key == NativeWheelKey() && message == WM_KEYDOWN) {
 				if ((data & (static_cast<LPARAM>(1) << 30)) && (g_nativeWheelHeld || g_suppressPhysicalRUp)) return 0;
 				if (!(data & (static_cast<LPARAM>(1) << 30)) && g_nativeWheelAllowed) {
 					g_suppressPhysicalRUp = true;
@@ -101,7 +121,7 @@ namespace keyboard
 			if (!previous) return false;
 			g_previousWindowProc = reinterpret_cast<WNDPROC>(previous);
 			g_keyboardWindow = window;
-			logger::info("keyboard: native R toggle installed; mouse stays on native keyboard wheel path");   // info, not warn: the shipped log level shows warnings only
+			logger::info("keyboard: native wheel toggle installed (trigger 0x{:02X}, game key 0x{:02X})", settings::Get().keyboard.lb, NativeWheelKey());
 			return true;
 		}
 
@@ -492,9 +512,24 @@ namespace keyboard
 		static bool previousWheel = false;
 		const bool wheelDown = Down(k.lb);
 		const bool mouseDown = Down(k.nextEntryMouse);
-		const bool nativeToggle = k.wheelToggle && k.lb == 'R' && InstallNativeWheelToggle();
+		const bool nativeToggle = k.wheelToggle && (k.nativeWheelKey != 0 || k.lb == 'R') && InstallNativeWheelToggle();
 		if (nativeToggle) {
 			g_nativeWheelAllowed = (gameplay || radial) && !ammo::Open();
+			if (k.lb != NativeWheelKey() && wheelDown && !previousWheel && g_nativeWheelAllowed) {
+				if (g_nativeWheelHeld || radial) {
+					g_nativeWheelCancel = true;
+				} else {
+					g_nativeWheelHeld = true;
+					g_nativeWheelAt = GetTickCount64();
+					if (PostMessageW(g_keyboardWindow, g_releaseWheelMessage, 1, 0)) {
+						g_nativeWheelStarted = true;
+						logger::debug("keyboard: wheel opened through native key 0x{:02X}", NativeWheelKey());
+					} else {
+						g_nativeWheelHeld = false;
+						logger::warn("keyboard: posting native wheel press failed ({})", GetLastError());
+					}
+				}
+			}
 			if (g_nativeWheelStarted.exchange(false)) {
 				wheels::KeepActive();
 				g_mouseRadial = true;

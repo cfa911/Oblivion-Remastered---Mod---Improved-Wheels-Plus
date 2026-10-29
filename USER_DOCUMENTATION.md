@@ -144,6 +144,8 @@ Close the game, edit `OblivionRemastered\Binaries\Win64\OBSE\Plugins\ImprovedWhe
 
 Keyboard controls are configurable under `[Keyboard]`, including `sEquipmentWheel`, `sMagicWheel` and `sAmmoWheel` for direct shortcuts. `NONE` disables a direct shortcut. Controller wheel and favorite bindings are configurable too; see the INI comments.
 
+If the wheel or menu cursor flickers after rebinding the gameplay wheel, set `sNativeWheelKey` to the game's own keyboard Quick Keys binding and keep `bWheelToggle=1`. For example, with Quick Keys on Q and the wheel trigger on mouse button 5, use `sNativeWheelKey=Q` and `sLB=0x06`. The trigger opens the wheel through Q instead of virtual controller LB. This key must match the game's Controls setting; the mod does not change that setting. `sNativeWheelKey=NONE` (the default) preserves the original behavior, including the native R toggle when `sLB=R`. Restart the game after editing. This option affects opening the gameplay wheel; it does not remove every use of virtual controller input.
+
 ### Wheel themes
 
 Version 2.2.0 gives Magic a blue wheel with a gold pointer and title outline, and Inventory a red wheel with a silver pointer and title outline. Assignment panels match. Ammo keeps its existing appearance.

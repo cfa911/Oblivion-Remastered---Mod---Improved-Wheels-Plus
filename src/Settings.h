@@ -61,6 +61,7 @@ namespace settings
 			int equipmentWheel = VK_F6, magicWheel = VK_F7, ammoWheel = VK_F8;   // hold to open that wheel directly
 			bool padWhenNone = true;        // with no controller connected, hand the game an idle connected pad so it polls every frame and the keys reach the rules
 			bool wheelToggle = true;       // gameplay wheel key toggles; menu R remains native
+			int nativeWheelKey = 0;        // sNativeWheelKey: game's keyboard quick-wheel binding; NONE keeps legacy behavior
 			int nextEntryMouse = VK_RBUTTON; // forward entry on right click, on HUD radial and assign panels
 			bool replaceQuickKeys = true;   // take the game's own keyboard quick keys (IA_Game_QuickKeys_Keyboard_N) off the keys, so only the plugin's slot keys act
 		} keyboard;
