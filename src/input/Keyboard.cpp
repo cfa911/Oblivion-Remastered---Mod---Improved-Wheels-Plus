@@ -1,4 +1,5 @@
 #include "input/Keyboard.h"
+#include "input/RadialSelection.h"
 
 #include "ammo/Ammo.h"
 #include "game/Menus.h"
@@ -302,8 +303,8 @@ namespace keyboard
 			const double ring = settings::Get().display.cellRingPercent / 100.0;
 			double       bestDist = half * settings::Get().display.cellHitPercent / 100.0;   // a cell is about 0.18 of the half-width across; a little more is taken
 			for (int k = 0; k < 8; ++k) {
-				const double ang = k * 45.0 * 3.14159265358979323846 / 180.0;
-				const double px = cx + std::sin(ang) * ring * half, py = cy - std::cos(ang) * ring * half;
+				double px = 0, py = 0;
+				radialselection::CellCentre(k, cx, cy, half, ring, px, py);
 				const double d = std::hypot(mx - px, my - py);
 				if (d < bestDist) bestDist = d, best = k;
 			}
@@ -333,9 +334,10 @@ namespace keyboard
 		// slot N (1 = top, clockwise, 45 degrees apart) as a right-stick deflection
 		void SlotStick(int a_slot, SHORT& a_x, SHORT& a_y)
 		{
-			const double angle = (a_slot - 1) * 45.0 * 3.14159265358979323846 / 180.0;
-			a_x = static_cast<SHORT>(std::lround(std::sin(angle) * 32000.0));
-			a_y = static_cast<SHORT>(std::lround(std::cos(angle) * 32000.0));
+			double dx = 0, dy = 0;
+			radialselection::KeyDirection(a_slot - 1, dx, dy);
+			a_x = static_cast<SHORT>(std::lround(dx * 32000.0));
+			a_y = static_cast<SHORT>(std::lround(dy * 32000.0));
 		}
 
 		// A slot key's script, advanced a read at a time from what the game shows (never blind timing: a stick held toward a slot

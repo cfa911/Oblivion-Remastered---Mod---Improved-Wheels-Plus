@@ -86,7 +86,8 @@ namespace pad
 		// the centre rest snap on the HUD radial (the owner, 2026-09-29: "we'd have to add the center rest snap feature or
 		// you might select items mistakenly"): once the right stick has pointed, bringing it back to rest in the middle for
 		// uRestSnapMs points at no slot, so letting go of the wheel button then uses nothing
-		constexpr double  kStickOn = 0.45, kStickRest = 0.25;
+		using radialselection::kStickOn;
+		using radialselection::kStickRest;
 		bool              g_radialWasOpen = false;
 		bool              g_radialAway = false;     // the stick has pointed since the last rest
 		bool              g_radialResting = true;
@@ -94,14 +95,10 @@ namespace pad
 		bool              g_snapped = false;        // a rest snap cleared the wheel and the stick has not pointed it again yet
 		int               g_unreported = 0;         // reads with the stick out and no slot reported since the snap
 
-		// the key (0-7) the right stick points at, as the wheel lays them out: 45 degrees a slot, key 0 at the top, clockwise
+		// the key (0-7) the right stick points at
 		int KeyFromStick(const XINPUT_GAMEPAD& a_pad)
 		{
-			double deg = std::atan2(a_pad.sThumbRX / 32767.0, a_pad.sThumbRY / 32767.0) * 180.0 / std::numbers::pi;
-			if (deg < 0) {
-				deg += 360.0;
-			}
-			return static_cast<int>((deg + 22.5) / 45.0) % 8;
+			return radialselection::KeyAt(a_pad.sThumbRX / 32767.0, a_pad.sThumbRY / 32767.0);
 		}
 
 		void RestSnap(const XINPUT_GAMEPAD& a_pad, Clock::time_point a_now)
@@ -277,8 +274,7 @@ namespace pad
 				for (int s = 0; s < 8; ++s) filled[static_cast<std::size_t>(s)] = keys[static_cast<std::size_t>(s)] != 0 && !magicwheel::IsSpellKey(s);
 			}
 			if (std::none_of(filled.begin(), filled.end(), [](bool b) { return b; })) return;
-			double ang = std::atan2(mx, my) * 180.0 / std::numbers::pi;   // clockwise from the top: slot n sits 45 * (n - 1) degrees round
-			if (ang < 0) ang += 360.0;
+			const double ang = radialselection::ClockwiseDegrees(mx, my);   // slot n sits 45 * (n - 1) degrees round
 			int best = -1;
 			double bestD = 1e9;
 			for (int s = 0; s < 8; ++s) {
@@ -289,10 +285,11 @@ namespace pad
 					best = s;
 				}
 			}
-			const double a = 45.0 * best * std::numbers::pi / 180.0;
+			double dx = 0, dy = 0;
+			radialselection::KeyDirection(best, dx, dy);
 			const double push = std::min(m, 1.0);
-			a_pad.sThumbRX = static_cast<SHORT>(std::lround(std::sin(a) * push * 32767.0));
-			a_pad.sThumbRY = static_cast<SHORT>(std::lround(std::cos(a) * push * 32767.0));
+			a_pad.sThumbRX = static_cast<SHORT>(std::lround(dx * push * 32767.0));
+			a_pad.sThumbRY = static_cast<SHORT>(std::lround(dy * push * 32767.0));
 		}
 
 		// The wheel closing by its button (let go after a hold, or pressed again after a tap): uses NOTHING by default; with INI [Wheel]

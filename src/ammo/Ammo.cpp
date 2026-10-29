@@ -1,5 +1,6 @@
 #include "ammo/Ammo.h"
 #include "ammo/AmmoLayout.h"
+#include "input/RadialSelection.h"
 #include "engine/UiText.h"
 
 #include "game/Inventory.h"
@@ -21,8 +22,8 @@ namespace ammo
 	{
 		using Clock = std::chrono::steady_clock;
 		constexpr int    kSlots = 8;
-		constexpr double kStickOn = 0.45;     // the right stick points once it is this far out
-		constexpr double kStickRest = 0.25;   // and is at rest inside this
+		using radialselection::kStickOn;
+		using radialselection::kStickRest;
 		constexpr WORD   kDpad = XINPUT_GAMEPAD_DPAD_UP | XINPUT_GAMEPAD_DPAD_DOWN | XINPUT_GAMEPAD_DPAD_LEFT | XINPUT_GAMEPAD_DPAD_RIGHT;
 		// the main wheel's own slot circle (a gold rim, a dark inside): the texture its material draws each slot with,
 		// found in the paks with uetex (/Game/Art/UI/Modern/HUD/QuickKeys/NewTextures) - the owner, 2026-09-30: "each arrow
@@ -625,8 +626,9 @@ namespace ammo
 		for (int i = 0; i < g_count && i < kSlots; ++i) {
 			const int slot = g_entryId[static_cast<std::size_t>(i)];
 			if (slot < 1 || !g_ids[static_cast<std::size_t>(i)]) continue;
-			const double ang = (slot - 1) * 45.0 * std::numbers::pi / 180.0;
-			const double d = std::hypot(a_x - (cx + std::sin(ang) * ring * half), a_y - (cy - std::cos(ang) * ring * half));
+			double px = 0, py = 0;
+			radialselection::CellCentre(slot - 1, cx, cy, half, ring, px, py);
+			const double d = std::hypot(a_x - px, a_y - py);
 			if (d < bestDist) bestDist = d, best = i;
 		}
 		return best;

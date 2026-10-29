@@ -108,6 +108,22 @@ int ReviewFixTests()
 	check(radialselection::LiveStickKey(0, 0) == -1, "center does not create a top selection after rest cancellation");
 	check(radialselection::LiveStickKey(3000, -3000) == -1, "stick drift does not revive cleared selection");
 	check(radialselection::LiveStickKey(0, 14744) == -1, "direction below active threshold retains native rest policy");
+	// the shared wheel geometry (stick, mouse cells, synthetic stick)
+	{
+		using namespace radialselection;
+		const auto same = [](double a, double b) { return std::fabs(a - b) < 1e-9; };
+		check(same(ClockwiseDegrees(0, 1), 0) && same(ClockwiseDegrees(1, 0), 90) && same(ClockwiseDegrees(0, -1), 180) && same(ClockwiseDegrees(-1, 0), 270), "clockwise degrees from the top");
+		check(KeyAt(0, 1) == 0 && KeyAt(1, 1) == 1 && KeyAt(1, 0) == 2 && KeyAt(-1, 1) == 7, "a direction's key, 45 degrees each");
+		check(KeyAt(std::sin(22.4 * std::numbers::pi / 180), std::cos(22.4 * std::numbers::pi / 180)) == 0 && KeyAt(std::sin(22.6 * std::numbers::pi / 180), std::cos(22.6 * std::numbers::pi / 180)) == 1, "key borders at 22.5 degrees");
+		double x = 0, y = 0;
+		KeyDirection(2, x, y);
+		check(same(x, 1) && same(y, 0), "key 2 points right");
+		CellCentre(0, 100, 200, 50, 0.5, x, y);
+		check(same(x, 100) && same(y, 175), "key 0's cell sits above the centre (screen y down)");
+		CellCentre(6, 100, 200, 50, 0.5, x, y);
+		check(same(x, 75) && same(y, 200), "key 6's cell sits left of the centre");
+		check(kStickOn == 0.45 && kStickRest == 0.25, "stick thresholds");
+	}
 	// Initialization must stay blocked until a successful native worker, never just queueing.
 	emptysetup::Gate setup;
 	check(!setup.Complete(), "missing setup starts blocked");
