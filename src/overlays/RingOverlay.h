@@ -5,6 +5,6 @@
 namespace ringoverlay
 {
 	enum class Kind { kMagic, kEquipment };
-	void Show(UE::UObject* a_gameWheelImage, Kind a_kind);   // over the wheel picture's rectangle
+	void Show(UE::UObject* a_gameWheelImage, Kind a_kind, bool a_messageUp);   // over the wheel picture's rectangle
 	void Hide();
 }

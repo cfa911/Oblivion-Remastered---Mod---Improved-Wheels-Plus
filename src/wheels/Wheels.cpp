@@ -14,6 +14,7 @@ namespace wheels::detail
 		static sessionepoch::Token observed{};
 		const auto now = sessioncontext::Current();
 		if (now != observed) {
+			g_generation.fetch_add(1, std::memory_order_relaxed);
 			ResetCarriedHistory();
 			observed = now;
 			g_pending = {};

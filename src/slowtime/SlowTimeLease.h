@@ -22,6 +22,7 @@ namespace slowtime
 	class Lease
 	{
 	public:
+		bool OwnsTime() const { return owned; }
 		static bool Near(float a, float b) { return std::isfinite(a) && std::abs(a - b) < 0.0001f; }
 		template <class Write>
 		void Update(bool wanted, float current, float multiplier, Write write)

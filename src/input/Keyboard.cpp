@@ -271,7 +271,19 @@ namespace keyboard
 			if (!wheel) return -1;
 			auto* image = quickkeys::WheelImage(wheel);
 			double x = 0, y = 0, w = 0, h = 0;
-			if (!image || !ui::Measure(image, x, y, w, h)) return -1;
+			if (!image) return -1;
+			static reflect::Handle measured;
+			static ULONGLONG nextMeasure = 0;
+			static double savedX = 0, savedY = 0, savedW = 0, savedH = 0;
+			const auto now = GetTickCount64();
+			if (reflect::Get(measured) != image || quickkeys::Animating() || now >= nextMeasure) {
+				if (!ui::Measure(image, x, y, w, h)) return -1;
+				measured = reflect::Hold(image);
+				savedX = x; savedY = y; savedW = w; savedH = h;
+				nextMeasure = now + 100;
+			} else {
+				x = savedX; y = savedY; w = savedW; h = savedH;
+			}
 			const double half = w * 0.5, cx = x + half, cy = y + h * 0.5;
 			int          best = -1;
 			const double ring = settings::Get().display.cellRingPercent / 100.0;
@@ -623,7 +635,7 @@ namespace keyboard
 					}
 				}
 				if (padMoves) mouseOwns = false;
-				if (mouseOwns && held >= 0 && quickkeys::PointedSlot() != held + 1 && !quickkeys::GameMessageUp()) quickkeys::Repoint(held);
+				if (mouseOwns && held >= 0 && quickkeys::PointedSlot() != held + 1 && !quickkeys::GameMessageUp(false)) quickkeys::Repoint(held);
 			}
 		}
 		// IWP-032 panel hover end

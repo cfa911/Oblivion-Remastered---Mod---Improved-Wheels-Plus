@@ -28,6 +28,7 @@ namespace testhread
 		void*                      g_target = nullptr;
 		std::mutex                 g_lock;
 		std::deque<Task>           g_tasks;
+		std::atomic<bool>         g_pending{ false };
 		std::atomic<std::uint32_t> g_thread{ 0 };
 		std::atomic<std::uint64_t> g_calls{ 0 };
 		std::atomic<void (*)()>    g_perPass{ nullptr };
@@ -48,9 +49,10 @@ namespace testhread
 			}
 			(void)Session();   // observe load/unavailable intervals even with no tasks
 			std::deque<Task> run;
-			{
+			if (g_pending.load(std::memory_order_acquire)) {
 				std::scoped_lock l(g_lock);
 				run.swap(g_tasks);
+				g_pending.store(false, std::memory_order_release);
 			}
 			for (auto& t : run) {
 				t();
@@ -113,6 +115,7 @@ namespace testhread
 		g_tasks.push_back([captured, task = std::move(a_task)] {
 			if (sessionepoch::Epoch::Allows(captured, Session())) task();
 		});
+		g_pending.store(true, std::memory_order_release);
 	}
 
 }

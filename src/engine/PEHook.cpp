@@ -1,3 +1,4 @@
+#include "core/FunctionClassCache.h"
 #include "engine/PEHook.h"
 #include "core/TextUtil.h"
 
@@ -80,9 +81,21 @@ namespace pe
 		return textutil::Wide(a_s);
 	}
 
-	std::string FunctionName(UE::UFunction* a_fn)
+	const std::string& FunctionName(UE::UFunction* a_fn)
 	{
-		return a_fn ? Utf8(a_fn->GetFName().ToString()) : std::string();
+		static const std::string empty;
+		if (!a_fn) return empty;
+		struct Identity
+		{
+			int index;
+			std::uint64_t name;
+			bool operator==(const Identity&) const = default;
+		};
+		thread_local FunctionClassCache<UE::UFunction*, Identity, std::string> cache;
+		const auto name = a_fn->GetFName();
+		return cache.Get(a_fn, { a_fn->internalIndex, name.ToUnstableInt() }, [&] {
+			return Utf8(name.ToString());
+		});
 	}
 
 	static bool WatchImpl(UE::UClass* a_class, Handler a_handler, bool a_post)

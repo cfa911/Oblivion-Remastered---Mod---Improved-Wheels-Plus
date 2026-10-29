@@ -1,4 +1,5 @@
 #include "input/Pad.h"
+#include "core/ReadMemo.h"
 #include "input/RadialSelection.h"
 #include "input/CloseEpoch.h"
 #include "input/Interop.h"
@@ -931,6 +932,7 @@ namespace pad
 			if (GetCurrentThreadId() != g_gameThread) {
 				return g_previous ? g_previous(a_user, a_state) : ERROR_DEVICE_NOT_CONNECTED;
 			}
+			readmemo::Scope readScope;
 			if (a_user == 0) {
 				if (auto cb = g_frameCallback.load(std::memory_order_acquire)) {
 					cb();

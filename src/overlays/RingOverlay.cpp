@@ -25,6 +25,9 @@ namespace ringoverlay
 			bool            shown = false, arrowShown = false;
 			double          x = -1e9, y = -1e9, w = -1, rot = -1e9, arrowW = -1, arrowX = -1e9;
 			ULONGLONG       lastBuild = 0;
+			ULONGLONG       nextMeasure = 0;
+			reflect::Handle measuredImage;
+			double          measuredX = 0, measuredY = 0, measuredW = 0, measuredH = 0;
 		};
 		// the Magic wheel in blue with a gold arrow, the Equipment wheel in red with a silver one (the owner's pictures)
 		Overlay g_overlay[2] = { { L"MagicWheel.png", L"gold_arrow.png" }, { L"EquipmentWheel.png", L"silver_arrow.png" } };
@@ -115,12 +118,12 @@ namespace ringoverlay
 		}
 	}
 
-	void Show(UE::UObject* a_gameWheelImage, Kind a_kind)
+	void Show(UE::UObject* a_gameWheelImage, Kind a_kind, bool a_messageUp)
 	{
 		// a message of the game over the wheel ("Staffs cannot be poisoned") is on a layer under ours: while it is up the game's own wheel
 		// shows and the message stays whole (the owner's screenshot, 2026-10-22)
 		const auto& theme = settings::Get().theme;
-		if (!(a_kind == Kind::kEquipment ? theme.inventory : theme.magic) || quickkeys::GameMessageUp(false)) {   // INI [Theme]: this wheel keeps the game's own look
+		if (!(a_kind == Kind::kEquipment ? theme.inventory : theme.magic) || a_messageUp) {   // INI [Theme]: this wheel keeps the game's own look
 			Hide();
 			return;
 		}
@@ -134,9 +137,18 @@ namespace ringoverlay
 		auto* root = reflect::Get(o.root);
 		auto* slot = reflect::Get(o.slot);
 		double x = 0, y = 0, w = 0, h = 0;
-		if (!root || !slot || !ui::Measure(a_gameWheelImage, x, y, w, h)) {
+		if (!root || !slot) {
 			Hide();
 			return;
+		}
+		const auto now = GetTickCount64();
+		if (!o.shown || reflect::Get(o.measuredImage) != a_gameWheelImage || quickkeys::Animating() || now >= o.nextMeasure) {
+			if (!ui::Measure(a_gameWheelImage, x, y, w, h)) { Hide(); return; }
+			o.measuredImage = reflect::Hold(a_gameWheelImage);
+			o.measuredX = x; o.measuredY = y; o.measuredW = w; o.measuredH = h;
+			o.nextMeasure = now + 100;
+		} else {
+			x = o.measuredX; y = o.measuredY; w = o.measuredW; h = o.measuredH;
 		}
 		if (slot && (std::abs(x - o.x) > 0.5 || std::abs(y - o.y) > 0.5 || std::abs(w - o.w) > 0.5)) {
 			ui::Vec2(slot, L"SetPosition", x, y);

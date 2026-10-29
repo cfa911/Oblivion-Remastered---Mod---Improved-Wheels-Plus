@@ -1,3 +1,4 @@
+#include "core/ReadMemo.h"
 // The wheel model and its file (Assignments/<character>.iwp): what may go on which wheel, saving and loading, keeping the wheels in step with the game's keys and the character's items.
 #include "wheels/WheelsInternal.h"
 
@@ -248,9 +249,8 @@ namespace wheels::detail
 		}
 	}
 
-	bool EnsureLoaded()
+	static bool EnsureLoadedNow()
 	{
-		if (!ObserveContext()) return false;
 		if (!RE::PlayerCharacter::GetSingleton()) {
 			return false;
 		}
@@ -295,5 +295,14 @@ namespace wheels::detail
 		}
 		MigrateAmmo();
 		return true;
+	}
+
+	bool EnsureLoaded()
+	{
+		// Recheck context even on a memo hit. Inventory may also change outside our
+		// actions: maintenance is reused only in this read, never across reads.
+		if (!ObserveContext()) return false;
+		static thread_local readmemo::Memo<std::uint32_t, bool> memo;
+		return memo.Get(g_generation.load(std::memory_order_relaxed), [] { return EnsureLoadedNow(); });
 	}
 }
