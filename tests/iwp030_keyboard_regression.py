@@ -3,8 +3,10 @@ import pathlib
 import subprocess
 import tempfile
 
+from source_paths import KEYBOARD
+
 root = pathlib.Path(__file__).resolve().parents[1]
-source = (root / "src/Keyboard.cpp").read_text(encoding="utf-8")
+source = KEYBOARD.read_text(encoding="utf-8")
 end = source.index("\t\t// the right stick: four keys")
 start = source.rfind("\t\tif (menus::AnyOpen() && !radial) press(k.select, XINPUT_GAMEPAD_BACK);", 0, end)
 if start < 0:

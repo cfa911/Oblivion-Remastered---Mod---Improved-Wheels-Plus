@@ -52,6 +52,25 @@ xmake build
 ```
 
 The DLL is written to `build/windows/x64/releasedbg/ImprovedWheelMenu.dll`; the shipped files are under `dist/`.
+Tests: `xmake build Tests && xmake run Tests`, and `python tests/iwp0NN_*.py` (each needs MSVC on the path).
+
+## Source layout
+
+`src/` is the one include root; includes name the folder (`#include "wheels/Wheels.h"`).
+
+| Folder | What is in it |
+|---|---|
+| `core/` | plugin entry (`main.cpp`), precompiled header, logger, settings, text and atomic-file helpers |
+| `engine/` | Unreal plumbing: ProcessEvent hook, reflection, widget building, text blocks, the TES-thread hook, pattern scan, session token |
+| `game/` | what the game is doing: open menus, the native quick-key radial, the player's inventory, inventory and magic list rows |
+| `input/` | controller (`Pad`), keyboard and mouse, the Controls page row, radial and close helpers |
+| `wheels/` | the wheel model: slots, assignment, use, saving (`.iwp` files) |
+| `overlays/` | what is drawn over the game's wheel: Magic wheel, ring picture, slot counters, wheel name |
+| `ammo/` | the Ammo wheel |
+| `favourites/` | the star column in the Inventory and Magic lists |
+| `slowtime/` | slowing the world while a wheel is open |
+
+Headers with no engine code (for example `wheels/WheelStorage.h`, `input/CloseEpoch.h`) are what the `Tests` target checks.
 
 ## Licence
 

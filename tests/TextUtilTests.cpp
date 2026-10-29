@@ -1,8 +1,8 @@
 // Unit tests for src/TextUtil.h. Build and run:  xmake f -m releasedbg && xmake build Tests && xmake run Tests
 // (no game needed). Exit code 0 = all passed.
 
-#include "TextUtil.h"
-#include "WheelStorage.h"
+#include "core/TextUtil.h"
+#include "wheels/WheelStorage.h"
 #include <sstream>
 
 #include <cstdio>

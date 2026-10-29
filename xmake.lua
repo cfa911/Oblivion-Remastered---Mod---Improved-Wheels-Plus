@@ -39,9 +39,9 @@ target("ImprovedWheelMenu")
     add_files("src/**.cpp")
     add_headerfiles("src/**.h")
     add_includedirs("src")
-    set_pcxxheader("src/pch.h")
+    set_pcxxheader("src/core/pch.h")
 
--- Unit tests of the engine-free helpers (src/TextUtil.h): xmake build Tests && xmake run Tests. Not part of the plugin and
+-- Unit tests of the engine-free helpers (src/core/TextUtil.h and the other pure headers): xmake build Tests && xmake run Tests. Not part of the plugin and
 -- not built by default.
 target("Tests")
     set_kind("binary")

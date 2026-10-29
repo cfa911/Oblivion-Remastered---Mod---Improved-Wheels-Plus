@@ -3,8 +3,10 @@ import pathlib
 import subprocess
 import tempfile
 
+from source_paths import KEYBOARD
+
 root = pathlib.Path(__file__).resolve().parents[1]
-source = (root / "src/Keyboard.cpp").read_text(encoding="utf-8")
+source = KEYBOARD.read_text(encoding="utf-8")
 start = source.index("\t\t{   // the left mouse button on a cell")
 end = source.index("\t\tif (ammo::Open())", start)
 block = source[start:end]
