@@ -1,6 +1,6 @@
 # Improved Wheels Plus — User Documentation
 
-For version **2.4.1**. [Nexus page](https://www.nexusmods.com/oblivionremastered/mods/5713) · [Change history](CHANGELOG.md)
+For version **2.4.2**. [Nexus page](https://www.nexusmods.com/oblivionremastered/mods/5713) · [Change history](CHANGELOG.md)
 
 Keep weapons, armor, supplies, spells and arrows within reach using three separate wheels, with full keyboard, mouse and controller support.
 
@@ -41,7 +41,7 @@ For Mod Organizer 2, install at the game root through Root Builder or an equival
 
 **The first time each character uses the mod, the game's original item and spell hotkeys are cleared and the mod's wheels start empty.** No manual cleanup is required. Rebuild your loadout using favorites, the assign panel or number keys.
 
-Existing Improved Wheels Plus **2.x** assignments are retained when updating to 2.4.1. Legacy wheel files and other wheel mods' assignments are not imported. Existing INI files keep their configured bindings, so your keys may differ from the defaults below.
+Existing Improved Wheels Plus **2.x** assignments are retained when updating to 2.4.2. Legacy wheel files and other wheel mods' assignments are not imported. Existing INI files keep their configured bindings, so your keys may differ from the defaults below.
 
 ## The three wheels
 
@@ -93,7 +93,7 @@ To get started: tap **R**, point with the mouse, right click until the entry you
 | Assign to the pointed slot | **A** in the assign panel |
 | Clear a pointed slot | Hold **X** for 0.6 seconds in the assign panel |
 
-The dedicated Ammo shortcut opens the Ammo wheel; no bow is needed. By default it is a full ring of eight cells in the middle of the screen; with `uPosition=0` in `[AmmoWheel]` it is a compact half-wheel on the right edge, which becomes a full ring on its own above five arrow types. Point with the right stick or **D-pad up / down**, then press its button again or **A** to equip. **B** cancels. Its binding has its own row in the game's Controls menu.
+The dedicated Ammo shortcut is unbound by default (`[AmmoWheel] uButton=0`). Set `uButton=8` to bind **D-pad Right**. When bound, it opens the Ammo wheel; no bow is needed. By default it is a full ring of eight cells in the middle of the screen; with `uPosition=0` in `[AmmoWheel]` it is a compact half-wheel on the right edge, which becomes a full ring on its own above five arrow types. Point with the right stick or **D-pad up / down**, then press its button again or **A** to equip. **B** cancels. Its binding has its own row in the game's Controls menu.
 
 ## Adding and organizing entries
 

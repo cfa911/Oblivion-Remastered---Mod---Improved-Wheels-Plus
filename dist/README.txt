@@ -1,6 +1,9 @@
 Improved Wheel - Keyboard and Better Controller Support
 =======================================================
-Version 2.4.1
+Version 2.4.2
+
+The dedicated controller Ammo shortcut is unbound by default ([AmmoWheel] uButton=0).
+Set uButton=8 for D-pad Right. The Ammo wheel stays enabled; existing INI bindings are preserved.
 
 A modified build of Improved Wheel Menu (Oblivion Remastered) by ApocryphaRealm (GPL-3.0). It replaces the original
 ImprovedWheelMenu.dll and keeps its file and setting names, so install it instead of the original, not beside it.
