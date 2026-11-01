@@ -24,7 +24,7 @@ namespace settings
 		bool centreRestSnap = true;   // [Wheel] bCentreRestSnap: the right stick back at rest points at no slot
 		int  restSnapMs = 250;        // [Wheel] uRestSnapMs: how long at rest before the pointer lets go
 		bool ammoWheel = true;        // [AmmoWheel] bEnabled
-		int  ammoButton = 0x0008;     // [AmmoWheel] uButton: XInput button mask (8 = D-pad right)
+		int  ammoButton = 0;          // [AmmoWheel] uButton: 0 disables the shortcut (8 = D-pad right).
 		bool ammoCentred = true;      // [AmmoWheel] uPosition: 0 = a half wheel on the middle of the right-hand edge (the original), 1 = the whole ring in the middle of the screen, like the other wheels
 		int  ammoScalePercent = 100;  // [AmmoWheel] uScalePercent
 		struct Theme   // [Theme]: the redesigned look of a wheel (2.2.0): its picture, pointer arrow and name colours; one switch a wheel

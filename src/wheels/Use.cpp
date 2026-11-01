@@ -35,7 +35,10 @@ namespace wheels::detail
 
 	bool MiscTool(std::uint32_t a_id)
 	{
-		return a_id == kRepairHammer;
+		// Soul Gems need the same Inventory parent for their recharge menu (IWP-036).
+		if (a_id == kRepairHammer) return true;
+		auto* form = a_id ? RE::TESForm::LookupByID(a_id) : nullptr;
+		return form && form->GetFormType() == RE::FormType::SoulGem;
 	}
 
 	// the controller function that presses the open-inventory action ("OpenInventoryMenuInput_Pressed" in game 1.512.105.0); found once by name
@@ -86,7 +89,7 @@ namespace wheels::detail
 		g_hi.stage = 1;
 		g_hi.at = GetTickCount64();
 		g_hi.id = a_id;
-		logger::info("wheels: {} pressed - the hammer is used once the Inventory is up", fn);
+		logger::info("wheels: {} pressed - hammer/Soul Gem use waits for Inventory", fn);
 		return true;
 	}
 
@@ -146,7 +149,9 @@ namespace wheels::detail
 			if (MiscTool(g_use.id)) {
 				HammerInvStart(g_use.id);
 			} else {
-				inventory::EquipKeyed(g_use.id);
+				auto* form = RE::TESForm::LookupByID(g_use.id);
+				if (form && form->GetFormType() == RE::FormType::Light) inventory::ToggleKeyed(g_use.id);
+				else inventory::EquipKeyed(g_use.id);
 			}
 			logger::info("wheels: USE Equipment slot {} ({}) - {}: used through Actor::EquipObject on the TES thread, the radial has closed", n, g_use.how, name);
 			return;
@@ -283,8 +288,11 @@ namespace wheels
 		// thread (lock argument false). The game's own quick-key press (Quick<N>Input_Pressed / _Released) equipped nothing
 		// in any of the 9 RB / A uses of 2026-10-01 02:32-02:37 ("unchanged 0.7 s after the game's key press ... FALLBACK"),
 		// and the EquipObject fallback worked every time ("(x1, worn)") - so the press and its 0.7 s wait are gone for it.
-		if (Equippable(id) || Consumable(id) || MiscTool(id)) {
-			if (g_use.before.worn && !MiscTool(id)) {
+		auto* form = RE::TESForm::LookupByID(id);
+		const bool alchemyTool = form && form->GetFormType() == RE::FormType::Apparatus;
+		const bool torch = form && form->GetFormType() == RE::FormType::Light;
+		if (Equippable(id) || Consumable(id) || MiscTool(id) || alchemyTool) {
+			if (g_use.before.worn && !MiscTool(id) && !torch) {
 				// what the game's own quick key does with an item already worn (unequip it, or nothing) is not known from the
 				// code or the game - the key press itself did nothing at all - so nothing is done, and said
 				// choosing the slot of an item that is already on takes it off
@@ -294,10 +302,15 @@ namespace wheels
 				return;
 			}
 			g_use.direct = true;
-			if (!Equippable(id) && !a_stayOpen) {
+			if (torch || (!Equippable(id) && !a_stayOpen)) {
 				// the game's own answer to a use it refuses ('You cannot drink any more potions right now') is a message that needs A; over a
 				// radial that is still open it kept the radial up and A never reached the message - so it is used once the radial is closed
 				g_use.waitClose = true;
+				if (torch) {
+					HoldKey(a_slot); // IWP-038: native close must not also equip this torch.
+					logger::info("wheels: torch action waits for radial close; native key held empty (IWP-038)");
+				}
+				if (alchemyTool) logger::info("wheels: alchemy tool uses shortcut action after radial closes");
 				logger::info("wheels: USE Equipment slot {} ({}) - {} ({}): used once the radial has closed", a_slot + 1, a_how, inventory::NameOf(id), inventory::Describe(g_use.before));
 				return;
 			}
@@ -319,7 +332,8 @@ namespace wheels
 			return false;
 		}
 		const auto id = inventory::Keys()[static_cast<std::size_t>(a_slot)];
-		return id && (Equippable(id) || Consumable(id));   // a poison too: its question over the open wheel is answered without choosing again (quickkeys::GameMessageUp), and closing the wheel for it needed the B fallback, whose B reached the game as crouch   // weapons, armour, clothing, lights and potions, poisons, ingredients (the game's refusal message over an open radial may need a click)
+		auto* form = id ? RE::TESForm::LookupByID(id) : nullptr;
+		return form && form->GetFormType() != RE::FormType::Light && (Equippable(id) || Consumable(id)); // IWP-038: torch equip needs a settled close.
 	}
 
 	void HoldKey(int a_slot)
