@@ -3,6 +3,17 @@
 Written as changes happen, not reconstructed afterwards (rule 61). Started 2026-09-29; the history before this file is
 in `git log`. A version number is issued by the version gate only once a build is seen working in game (rule 48).
 
+## 2.4.2 - 2026-11-01 - Improved Wheels Plus
+
+### Fixed
+- Soul Gems use the Inventory-first flow for the recharge menu, preventing a stuck screen when leaving it after wheel or direct-shortcut use.
+- Alchemy tools now work when clicked with the mouse on the Inventory wheel, matching direct-shortcut use.
+- Selecting a torch by releasing the controller wheel button no longer crashes in the tested scenario. Torch equip and put-away actions wait until the wheel finishes closing.
+
+### Changed
+- The dedicated controller Ammo-wheel shortcut is unbound by default (`[AmmoWheel] uButton=0`). Set it to `8` for D-pad Right. The Ammo wheel stays enabled and existing INI bindings are preserved.
+- Torches close the Inventory wheel before use even when stay-open-after-use is enabled.
+
 ## 2.4.1 - 2026-10-27 - Improved Wheels Plus
 
 ### Changed
