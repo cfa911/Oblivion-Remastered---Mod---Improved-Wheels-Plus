@@ -286,7 +286,9 @@ namespace wheels
 		// thread (lock argument false). The game's own quick-key press (Quick<N>Input_Pressed / _Released) equipped nothing
 		// in any of the 9 RB / A uses of 2026-10-01 02:32-02:37 ("unchanged 0.7 s after the game's key press ... FALLBACK"),
 		// and the EquipObject fallback worked every time ("(x1, worn)") - so the press and its 0.7 s wait are gone for it.
-		if (Equippable(id) || Consumable(id) || MiscTool(id)) {
+		auto* form = RE::TESForm::LookupByID(id);
+		const bool alchemyTool = form && form->GetFormType() == RE::FormType::Apparatus;
+		if (Equippable(id) || Consumable(id) || MiscTool(id) || alchemyTool) {
 			if (g_use.before.worn && !MiscTool(id)) {
 				// what the game's own quick key does with an item already worn (unequip it, or nothing) is not known from the
 				// code or the game - the key press itself did nothing at all - so nothing is done, and said
@@ -301,6 +303,7 @@ namespace wheels
 				// the game's own answer to a use it refuses ('You cannot drink any more potions right now') is a message that needs A; over a
 				// radial that is still open it kept the radial up and A never reached the message - so it is used once the radial is closed
 				g_use.waitClose = true;
+				if (alchemyTool) logger::info("wheels: alchemy tool uses shortcut action after radial closes");
 				logger::info("wheels: USE Equipment slot {} ({}) - {} ({}): used once the radial has closed", a_slot + 1, a_how, inventory::NameOf(id), inventory::Describe(g_use.before));
 				return;
 			}

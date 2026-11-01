@@ -26,12 +26,13 @@ program = r'''
 #include <string>
 using namespace std::chrono_literals;
 namespace RE {
-enum class FormType { Misc, SoulGem, Weapon, Armor, Clothing, Light, AlchemyItem, Ingredient };
+enum class FormType { Misc, SoulGem, Weapon, Armor, Clothing, Light, AlchemyItem, Ingredient, Apparatus };
 struct TESForm {
     FormType type;
     FormType GetFormType() { return type; }
     static TESForm* LookupByID(unsigned id) {
-        static TESForm gem{FormType::SoulGem}, weapon{FormType::Weapon}, potion{FormType::AlchemyItem}, misc{FormType::Misc};
+        static TESForm gem{FormType::SoulGem}, weapon{FormType::Weapon}, potion{FormType::AlchemyItem}, misc{FormType::Misc}, apparatus{FormType::Apparatus};
+        if (id == 500) return &apparatus;
         if (id == 100 || id == 101) return &gem;
         if (id == 200) return &weapon;
         if (id == 300) return &potion;
