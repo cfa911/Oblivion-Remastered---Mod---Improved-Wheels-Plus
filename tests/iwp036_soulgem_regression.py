@@ -31,7 +31,8 @@ struct TESForm {
     FormType type;
     FormType GetFormType() { return type; }
     static TESForm* LookupByID(unsigned id) {
-        static TESForm gem{FormType::SoulGem}, weapon{FormType::Weapon}, potion{FormType::AlchemyItem}, misc{FormType::Misc}, apparatus{FormType::Apparatus};
+        static TESForm gem{FormType::SoulGem}, weapon{FormType::Weapon}, potion{FormType::AlchemyItem}, misc{FormType::Misc}, apparatus{FormType::Apparatus}, torch{FormType::Light};
+        if (id == 600) return &torch;
         if (id == 500) return &apparatus;
         if (id == 100 || id == 101) return &gem;
         if (id == 200) return &weapon;
@@ -52,7 +53,8 @@ struct State { bool worn = false, carried = true; bool operator!=(const State&) 
 std::array<unsigned, 8> keys{};
 auto Keys() { return keys; }
 bool Has(unsigned) { return true; }
-State StateOf(unsigned) { return {}; }
+bool worn = false;
+State StateOf(unsigned) { return {worn, true}; }
 std::string NameOf(unsigned) { return "item"; }
 std::string Describe(State) { return "state"; }
 void EquipKeyed(unsigned) { ++equipped; }
@@ -80,6 +82,8 @@ struct PendingUse {
     std::chrono::steady_clock::time_point armed{}, closedAt{}, verifyAt{};
 } g_use;
 bool HammerInvStart(unsigned id) { ++inventoryStarts; startedId = id; return true; }
+int heldSlot = -1;
+void HoldKey(int slot) { heldSlot = slot; inventory::keys[slot] = 0; }
 constexpr unsigned kRepairHammer = 12;
 '''
 for signature in ("bool Equippable(", "bool Consumable(", "bool MiscTool(", "void DriveUse(", "void QuickUse(", "void UseNow(", "bool StaysOpenAfterUse("):
