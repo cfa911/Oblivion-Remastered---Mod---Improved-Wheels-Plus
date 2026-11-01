@@ -35,7 +35,10 @@ namespace wheels::detail
 
 	bool MiscTool(std::uint32_t a_id)
 	{
-		return a_id == kRepairHammer;
+		// Soul Gems need the same Inventory parent for their recharge menu (IWP-036).
+		if (a_id == kRepairHammer) return true;
+		auto* form = a_id ? RE::TESForm::LookupByID(a_id) : nullptr;
+		return form && form->GetFormType() == RE::FormType::SoulGem;
 	}
 
 	// the controller function that presses the open-inventory action ("OpenInventoryMenuInput_Pressed" in game 1.512.105.0); found once by name
@@ -86,7 +89,7 @@ namespace wheels::detail
 		g_hi.stage = 1;
 		g_hi.at = GetTickCount64();
 		g_hi.id = a_id;
-		logger::info("wheels: {} pressed - the hammer is used once the Inventory is up", fn);
+		logger::info("wheels: {} pressed - hammer/Soul Gem use waits for Inventory", fn);
 		return true;
 	}
 
