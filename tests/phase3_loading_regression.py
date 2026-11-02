@@ -12,6 +12,7 @@ program=r'''
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
+#include <filesystem>
 ''' + f'#include "{(root / "src/core/ReadMemo.h").as_posix()}"\n' + r'''
 using ULONGLONG=unsigned long long;
 ULONGLONG GetTickCount64(){return 10000;}
@@ -20,15 +21,18 @@ namespace inventory {bool Ready(){return true;} std::string PlayerName(){return 
 namespace rows {int PlayerSpellCount(){return 1;}}
 namespace quickkeys {void RequestRedraw(){}}
 namespace testhread {bool Installed(){return false;} template<class F>void Post(F f){f();}}
-namespace logger {void warn(const char*){}}
+namespace logger {template<class... Args>void warn(const char*,Args&&...){}}
 namespace perfdiag {enum Counter{kEnsureLoaded};void Add(Counter){}}
 bool context=true; bool ObserveContext(){return context;}
 std::string g_loadedFor="Hero";
+std::string g_loadCandidate;
+ULONGLONG g_loadCandidateAt=0, g_storageRetryAt=0;
 bool g_sanitized=true, g_storageRejected=false, g_initializeEmpty=false;
 std::atomic<std::uint32_t> g_generation{1};
 ULONGLONG g_sanitizeAt=0;
 struct Empty {bool Complete(){return true;} int Queue(ULONGLONG){return 0;} template<class F>void Run(int,F f){f();}}g_emptySetup;
-void Load(const std::string&){} void Save(){} void Sanitize(){}
+std::filesystem::path FileFor(const std::string&){return {};}
+void Load(const std::string&){} bool Save(){return true;} void Sanitize(){}
 bool AssignPending(){return false;}
 int reconciles=0;
 void RemoveLeavers(){} void RemoveGoneInMenus(){} void Reconcile(){++reconciles;} void MigrateAmmo(){}

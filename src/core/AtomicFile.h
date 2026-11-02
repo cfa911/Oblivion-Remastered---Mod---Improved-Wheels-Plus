@@ -13,7 +13,8 @@
 namespace atomicfile
 {
 	// Same-directory replacement: the previous file remains until every byte is flushed and closed.
-	inline bool Write(const std::filesystem::path& path, std::string_view bytes)
+	// Fresh setup passes false: a file arriving before the rename must never be replaced.
+	inline bool Write(const std::filesystem::path& path, std::string_view bytes, bool replaceExisting = true)
 	{
 		static std::atomic<unsigned long long> sequence{ 0 };
 		std::filesystem::path temporary;
@@ -35,7 +36,8 @@ namespace atomicfile
 		}
 		if (ok) ok = FlushFileBuffers(file) != 0;
 		if (!CloseHandle(file)) ok = false;
-		if (ok) ok = MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
+		if (ok) ok = MoveFileExW(temporary.c_str(), path.c_str(),
+			(replaceExisting ? MOVEFILE_REPLACE_EXISTING : 0) | MOVEFILE_WRITE_THROUGH) != 0;
 		if (!ok) DeleteFileW(temporary.c_str());
 		return ok;
 	}

@@ -288,6 +288,8 @@ int ReviewFixTests()
 		return std::string(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
 	};
 	check(atomicfile::Write(path, encoded.str()) && contents() == encoded.str(), "atomic create with Unicode path");
+	check(!atomicfile::Write(path, "empty setup", false) && contents() == encoded.str(),
+		"create-only commit preserves an assignment file that already exists");
 	const std::string large(2 * 1024 * 1024 + 19, 'x');
 	check(atomicfile::Write(path, large) && contents() == large, "atomic replace writes multiple chunks exactly");
 	const HANDLE locked = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
@@ -298,6 +300,9 @@ int ReviewFixTests()
 		"failed replacement removes only its temporary file");
 	check(!atomicfile::Write(dir / L"missing" / L"file.iwp", "data"), "temporary create failure reported");
 	check(atomicfile::Write(path, "") && contents().empty(), "empty atomic replacement");
+	std::filesystem::remove(path);
+	check(atomicfile::Write(path, encoded.str(), false) && contents() == encoded.str(),
+		"create-only commit creates a missing assignment file");
 	std::filesystem::remove(path);
 	std::filesystem::remove(dir);
 	std::printf("Review fixes: %d checks, %d failed\n", checks, failed);

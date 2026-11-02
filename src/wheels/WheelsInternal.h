@@ -35,6 +35,9 @@ namespace wheels::detail
 	using Slot = wheelstorage::Slot;
 	inline wheelstorage::Model g_wheels;
 	inline std::string g_loadedFor;   // the character g_wheels belongs to
+	inline std::string g_loadCandidate;   // do not accept a changing identity while a save settles
+	inline ULONGLONG g_loadCandidateAt = 0;
+	inline ULONGLONG g_storageRetryAt = 0;
 	inline bool g_storageRejected = false;   // never load or overwrite a file without our format and character identity
 	inline emptysetup::Gate g_emptySetup;
 	inline bool g_initializeEmpty = false;   // no stored wheel setup: clear native item keys once inventory is ready
@@ -122,7 +125,7 @@ namespace wheels::detail
 	bool IsAmmo(std::uint32_t a_id);
 	std::string NameOf(int a_wheel, std::uint32_t a_id);
 	std::filesystem::path FileFor(const std::string& a_name);
-	void Save();
+	bool Save();
 	void Load(const std::string& a_name);
 	int IndexOf(const Slot& a_slot, std::uint32_t a_id);
 	int Cap();

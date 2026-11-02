@@ -32,46 +32,65 @@ namespace wheels::detail
 		return settings::PluginFolder() / L"ImprovedWheelsPlus" / L"Assignments" / (wheelstorage::SafeName(a_name) + ".iwp");
 	}
 
-	void Save()
+	bool Save()
 	{
 		g_generation.fetch_add(1, std::memory_order_relaxed);
 		if (g_loadedFor.empty() || g_storageRejected) {
-			return;
+			return false;
 		}
 		const auto path = FileFor(g_loadedFor);
 		std::error_code ec;
 		std::filesystem::create_directories(path.parent_path(), ec);
+		if (ec) {
+			logger::error("wheels: cannot create assignment directory: {}", ec.message());
+			return false;
+		}
 		// Do not overwrite a foreign file even if it appeared after Load.
-		if (std::filesystem::exists(path)) {
+		const bool exists = std::filesystem::exists(path, ec);
+		if (ec) {
+			logger::error("wheels: cannot check assignment file: {}", ec.message());
+			return false;
+		}
+		if (exists) {
+			// A file may become available during native cleanup. Load it instead of replacing it.
+			if (g_initializeEmpty) return false;
 			std::ifstream existing(path);
 			if (!wheelstorage::ReadHeader(existing, g_loadedFor)) {
 				g_storageRejected = true;
+				g_storageRetryAt = GetTickCount64() + 5000;
 				logger::error("wheels: refusing to overwrite unrecognized assignment file {}", path.string());
-				return;
+				return false;
 			}
 		}
 		std::ostringstream data;
 		wheelstorage::WriteAssignments(data, g_loadedFor, g_wheels);
-		if (!data || !atomicfile::Write(path, data.str())) {
+		if (!data || !atomicfile::Write(path, data.str(), !g_initializeEmpty)) {
 			logger::error("wheels: atomic assignment save failed; previous file preserved: {}", path.string());
+			return false;
 		}
+		return true;
 	}
 
 	void Load(const std::string& a_name)
 	{
+		const bool retrying = g_storageRejected && g_loadedFor == a_name;
 		ResetCarriedHistory();
 		g_wheels = {};
 		g_emptySetup.Reset();
 		g_initializeEmpty = false;
 		g_storageRejected = false;
+		g_storageRetryAt = 0;
 		g_loadedFor = a_name;
 		g_generation.fetch_add(1, std::memory_order_relaxed);
 		const auto path = FileFor(a_name);
 		std::ifstream f(path);
 		if (!f) {
-			if (std::filesystem::exists(path)) {
+			std::error_code ec;
+			const bool exists = std::filesystem::exists(path, ec);
+			if (ec || exists) {
 				g_storageRejected = true;
-				logger::error("wheels: assignment file cannot be read; leaving it untouched: {}", path.string());
+				g_storageRetryAt = GetTickCount64() + 5000;
+				if (!retrying) logger::error("wheels: assignment file cannot be read; will retry without overwriting: {}", path.string());
 			} else {
 				g_initializeEmpty = true;
 				logger::info("wheels: no ImprovedWheelsPlus assignments for {} yet ({})", a_name, path.filename().string());
@@ -80,10 +99,12 @@ namespace wheels::detail
 		}
 		if (!wheelstorage::ReadAssignments(f, a_name, g_wheels)) {
 			g_storageRejected = true;
-			logger::error("wheels: invalid assignment data or identity in {}; file left untouched", path.string());
+			g_storageRetryAt = GetTickCount64() + 5000;
+			if (!retrying) logger::error("wheels: invalid assignment data or identity in {}; file left untouched; will retry", path.string());
 			return;
 		}
 		logger::info("wheels: assignments loaded for {}", a_name);
+		if (retrying) logger::warn("wheels: assignment file recovered for '{}': {}", a_name, path.filename().string());
 	}
 
 	int IndexOf(const Slot& a_slot, std::uint32_t a_id)
@@ -238,16 +259,37 @@ namespace wheels::detail
 			return false;
 		}
 		const std::string name = inventory::PlayerName();
+		const auto now = GetTickCount64();
 		if (name != g_loadedFor) {
+			// Settle before reading or creating this identity's file. Actions stay blocked until then.
+			if (name != g_loadCandidate) {
+				g_loadCandidate = name;
+				g_loadCandidateAt = now + 3000;
+			}
+			if (now < g_loadCandidateAt) return false;
 			Load(name);
 			g_sanitized = false;
-			g_sanitizeAt = GetTickCount64() + 3000;   // let the character's inventory and spell list finish loading
+			g_sanitizeAt = now;   // the identity has already settled for three seconds
+		} else {
+			g_loadCandidate.clear();
+			g_loadCandidateAt = 0;
 		}
-		if (g_storageRejected) return false;
+		if (g_storageRejected) {
+			if (now < g_storageRetryAt) return false;
+			Load(name);
+			if (g_storageRejected) return false;
+		}
 		if (g_initializeEmpty) {
 			// Keep saved setup absent and wheel actions blocked until native cleanup really completes.
 			// Never strip ExtraQuickKey here: the native remover needs it for its bookkeeping.
 			if (GetTickCount64() < g_sanitizeAt || !inventory::Ready() || AssignPending()) return false;
+			if (now < g_storageRetryAt) return false;
+			std::error_code ec;
+			const bool exists = std::filesystem::exists(FileFor(name), ec);
+			if (ec || exists) {
+				Load(name);   // a setup became available after the missing-file check
+				return false;
+			}
 			if (!g_emptySetup.Complete()) {
 				if (testhread::Installed()) {
 					if (const auto ticket = g_emptySetup.Queue(GetTickCount64())) {
@@ -258,10 +300,14 @@ namespace wheels::detail
 				}
 				return false;
 			}
+			if (!Save()) {
+				g_storageRetryAt = now + 5000;
+				return false;
+			}
 			g_initializeEmpty = false;
-			Save();
+			g_storageRetryAt = 0;
 			quickkeys::RequestRedraw();
-			logger::warn("wheels: empty setup ready - native item and spell hotkeys verified empty before assignments enabled");
+			logger::warn("wheels: empty setup ready - native item and spell hotkeys verified empty before assignments enabled; saved for '{}' in {}", name, FileFor(name).filename().string());
 		}
 		if (!g_sanitized && GetTickCount64() >= g_sanitizeAt && inventory::Ready() && rows::PlayerSpellCount() > 0 &&
 			!AssignPending()) {
