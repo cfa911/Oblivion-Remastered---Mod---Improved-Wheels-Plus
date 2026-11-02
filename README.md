@@ -2,7 +2,7 @@
 
 **Playing the mod? Read the [User Documentation](USER_DOCUMENTATION.md)** for installation, controls, wheel assignments, settings, compatibility and troubleshooting.
 
-A fork of [Improved Wheel Menu](https://github.com/ApocryphaRealm/ImprovedWheelMenuOR) by ApocryphaRealm, version **2.4.2** of this fork.
+A fork of [Improved Wheel Menu](https://github.com/ApocryphaRealm/ImprovedWheelMenuOR) by ApocryphaRealm, version **2.5.0** of this fork.
 
 **Not compatible with other wheel mods.** It replaces Improved Wheel Menu (same file and setting names) and takes over the game's quick-key radial and hotkeys; use it instead of any other wheel mod, never beside one.
 
