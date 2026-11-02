@@ -1,83 +1,105 @@
-# Improved Wheel - Keyboard and Better Controller Support (Oblivion Remastered)
+# Improved Wheels Plus
 
-**Playing the mod? Read the [User Documentation](USER_DOCUMENTATION.md)** for installation, controls, wheel assignments, settings, compatibility and troubleshooting.
+Three wheels for gear, spells, scrolls and arrows in **Oblivion Remastered**, with keyboard, mouse and controller support.
 
-A fork of [Improved Wheel Menu](https://github.com/ApocryphaRealm/ImprovedWheelMenuOR) by ApocryphaRealm, version **2.5.0** of this fork.
+**Current release: 2.5.0.** [Download on Nexus Mods](https://www.nexusmods.com/oblivionremastered/mods/5713) or [GitHub Releases](https://github.com/cfa911/Oblivion-Remastered---Mod---Improved-Wheels-Plus/releases/latest).
 
-**Not compatible with other wheel mods.** It replaces Improved Wheel Menu (same file and setting names) and takes over the game's quick-key radial and hotkeys; use it instead of any other wheel mod, never beside one.
+Read the [User Documentation](USER_DOCUMENTATION.md) for detailed controls, settings, assignment backups and troubleshooting, or the [changelog](CHANGELOG.md) for version history.
 
-**Plug and play.** The first time a character loads, the game's own hotkey wheel (items and spells) is cleared and the mod's own wheels start empty. Nothing to clear by hand before installing.
+## What you get
 
-**The main addition is keyboard support:** the whole wheel menu (the inventory, Magic and ammo wheels, favouriting, the assign panel) works from the keyboard, with or without a controller. Every key is configurable in the `[Keyboard]` section of `ImprovedWheelMenu.ini`, and so is every other setting. On top of that it adds the Select/L3/LB controller rules, clearing a slot, spells you made, slot counters and names on the Magic wheel, and per-character wheels. See [`CHANGELOG.md`](CHANGELOG.md). The DLL keeps the original's name, so install it instead of the original. Original authorship and commit history are kept; this fork is GPL-3.0-or-later like the original.
+- **Inventory wheel:** weapons, armor, clothing, potions, poisons, ingredients and supported utility items. Equip or unequip gear and use items from the wheel.
+- **Magic wheel:** learned spells, custom spells and scrolls. Select an entry to ready it, then cast with your usual control.
+- **Ammo wheel:** eight cells, one arrow type per cell, with no bow required. Arrows stay in the cells you choose.
+- **More room:** Inventory and Magic each have eight slots with up to five entries per slot by default. Browse several entries without moving to another slot.
+- **Per-character assignments:** wheel setups survive restarts. Entries unavailable in the loaded save are hidden rather than erased.
+- **Optional slow motion:** gameplay slows while a wheel is open and returns to normal when it closes. Sound is unchanged.
+- **Wheel themes:** blue Magic with gold details and red Inventory with silver details, including assignment panels. Each theme can be disabled separately.
 
-## Wheel appearance in 2.2.0
+## New in 2.5.0
 
-Magic has a blue wheel, gold pointer and blue title with a gold outline. Inventory has a red wheel, silver pointer and red title with a silver outline. Both assignment panels use the same themes. Ammo retains its existing appearance. In `[Theme]`, `bMagicWheel=1` and `bInventoryWheel=1` enable each theme independently; set either to `0` for the native look.
+- Assign scrolls to the Magic wheel, see owned-entry counts, and ready/cast through the game's native scroll action.
+- Cycle gameplay wheels with controller **L3 / R3**, alongside **D-pad left / right**.
+- Reuse a full slot's depleted consumable space when adding a new entry, without clearing its other assignments.
+- Fixed wheel input interfering with potion-name typing in Alchemy.
+- Added safeguards for wheel-file loading and initial creation. Local reload and full-restart tests passed; the separately reported remote persistence problem remains unverified.
+- Simplified keyboard support to `[Keyboard] bKeyboardSupport`. Removed obsolete settings; default center-rest time is now 400 ms.
 
-## Keyboard defaults in 2.3.0
+## Install
 
-- **R:** open the gameplay wheel; press again to cancel. In Inventory/Magic, R opens the native assign panel.
-- **F6 / F7 / F8:** hold to open Equipment / Magic / Ammo directly.
-- **Q / E:** previous / next wheel.
-- **Z / C:** previous / next entry; **right click** also advances an entry.
-- **Mouse / left click:** point / use.
-- **F:** favorite; hold **X** in the assign panel to clear a slot.
-- **1-8 / Numpad 1-8:** directly use a slot without opening the wheel in gameplay, or assign the highlighted menu item/spell.
+**Use instead of other wheel mods, including Improved Wheel Menu.** They share the game's quick-key radial and hotkeys. The plugin keeps the filename `ImprovedWheelMenu.dll`.
 
-All bindings are configurable in the ini. Existing ini files keep their configured keys.
+Requires the **Steam version** of Oblivion Remastered, [OBSE64](https://www.nexusmods.com/oblivionremastered/mods/282) 0.2.2 or newer, and [Address Library for OBSE Plugins](https://www.nexusmods.com/oblivionremastered/mods/4475). Tested on game build **1.512.105.0**; Game Pass / Microsoft Store is unsupported.
 
-## Slow motion in 2.4.0
+1. Close the game completely and remove other wheel mods.
+2. Install the release ZIP through Vortex, or copy its `OblivionRemastered` folder into the game folder. MO2 requires a game-root installation through Root Builder or an equivalent.
+3. Load your character and assign entries. A new character setup starts empty and clears the game's original quick-key assignments automatically; no manual cleanup is needed. Existing Improved Wheels Plus 2.x assignments are retained.
 
-While a gameplay wheel is open (Inventory, Magic or Ammo), the world slows to one tenth speed and returns to normal
-the moment the wheel closes. It is on by default. `[Wheel] bSlowTime=0` turns it off, and `uSlowTimePercent` (1 to 99)
-sets the speed. Sound is not slowed. It may not be compatible with other slow-down mods.
+## Default controls
 
----
+| Action | Keyboard / mouse | Controller |
+|---|---|---|
+| Open gameplay wheel | Tap **R**; tap again to cancel | Hold **LB** |
+| Point at a slot | Mouse | Right stick |
+| Previous / next wheel | **Q / E** | **D-pad left / right** or **L3 / R3** |
+| Previous / next entry | **Z / C**; right click advances | **LT / RT** |
+| Use pointed entry | Left click or **Backslash** | **A / RB**, or release **LB** on the highlighted entry |
+| Cancel | **R** | **B** |
+| Favorite highlighted menu entry | **F** | **Select** |
+| Open assignment panel in Inventory / Magic | **R** | **L3** |
+| Assign highlighted menu entry to pointed slot | Left click | **A** |
+| Clear pointed slot in assignment panel | Hold **X** for 0.6 seconds | Hold **X** for 0.6 seconds |
 
-# Improved Wheel Menu (Oblivion Remastered)
+Hold **F6 / F7 / F8** to open Inventory / Magic / Ammo directly. **1–8 / Numpad 1–8** use slots directly in gameplay or assign highlighted entries in menus. While the assignment panel is open, **Z / C**, **LT / RT**, or right click browse entries within the pointed slot.
 
-An OBSE64 plugin that makes Oblivion Remastered's own quick-key radial a full wheel menu: eight slots that each hold
-several items (LT / RT choose, RB or A use), a Magic wheel of its own for spells, and an ammo wheel of eight cells for arrows (no
-bow needed). The game's radial, prompts and quick keys are used throughout. The package README is
-[`dist/README.txt`](dist/README.txt); the history is [`CHANGELOG.md`](CHANGELOG.md).
+The dedicated controller Ammo shortcut is unbound by default (`[AmmoWheel] uButton=0`); Ammo remains available by switching wheels. Set `uButton=8` for D-pad Right. Existing INI bindings are retained.
 
-## Build
+## Settings and compatibility
 
-Requires [XMake](https://xmake.io) 3.0+ and a C++23 compiler (MSVC or clang-cl).
+Close the game before editing `OblivionRemastered\Binaries\Win64\OBSE\Plugins\ImprovedWheelMenu.ini`, then restart.
+
+- `[Keyboard] bKeyboardSupport=1` enables keyboard/mouse support, including without a connected controller. Key bindings are configurable in the same section.
+- `[Wheel] bSlowTime=0` disables slow motion; `uSlowTimePercent` sets its speed. Other slow-down mods may conflict.
+- Capacity and behavior options include `uEntriesPerSlot`, `bChooseOnClose`, `bStayOpenAfterUse`, `bPointFilledOnly` and `bShowSlotCapacity`.
+- `[Theme] bMagicWheel=0` or `bInventoryWheel=0` restores that wheel's native appearance.
+- Animation speed, standard Ammo size, left-side favorite stars, armor/clothing assignment and native L3 assignment-panel behavior are fixed; the old options for these are no longer read.
+- Assignments are stored under `OBSE\Plugins\ImprovedWheelsPlus\Assignments`. Back them up before resetting a setup; see the User Documentation.
+
+**Works together with Menus Revamped.** Its search-bar typing, mouse interaction and controller keyboard take priority over wheel shortcuts. Neither mod requires the other. Use the separate **2.4.0 legacy download** if you still use the standalone SearchLight or Smooth Menus plugins; do not run those alongside Menus Revamped.
+
+Known limitation: direct **F6 / F7 / F8** wheel shortcuts can reset Caps Lock walking to running. The default **R** wheel and direct **1–8** activation preserve walking.
+
+## Build and tests
+
+Requires [XMake](https://xmake.io) 3.0+, a C++23 compiler (MSVC or clang-cl), and the Windows SDK. Run from a configured compiler environment:
 
 ```bat
-git clone --recurse-submodules https://github.com/ApocryphaRealm/ImprovedWheelMenuOR
-cd ImprovedWheelMenuOR
-xmake build
+git clone --recurse-submodules https://github.com/cfa911/Oblivion-Remastered---Mod---Improved-Wheels-Plus.git
+cd Oblivion-Remastered---Mod---Improved-Wheels-Plus
+xmake f -y -p windows -a x64 -m releasedbg
+xmake build ImprovedWheelMenu
+xmake build Tests
+xmake run Tests
 ```
 
-The DLL is written to `build/windows/x64/releasedbg/ImprovedWheelMenu.dll`; the shipped files are under `dist/`.
-Tests: `xmake build Tests && xmake run Tests`, and `python tests/iwp0NN_*.py` (each needs MSVC on the path).
+The DLL is written to `build/windows/x64/releasedbg/ImprovedWheelMenu.dll`. Shipped assets are under `dist/`. Additional focused regression scripts live in `tests/`; their compiler requirements are documented in each script.
 
 ## Source layout
 
-`src/` is the one include root; includes name the folder (`#include "wheels/Wheels.h"`).
-
-| Folder | What is in it |
+| Folder under `src/` | Purpose |
 |---|---|
-| `core/` | plugin entry (`main.cpp`), precompiled header, logger, settings, text and atomic-file helpers |
-| `engine/` | Unreal plumbing: ProcessEvent hook, reflection, widget building, text blocks, the TES-thread hook, pattern scan, session token |
-| `game/` | what the game is doing: open menus, the native quick-key radial, the player's inventory, inventory and magic list rows, the character's session, the texts the player typed (`TypedNames`) and the names learned for spells the player made (`SpellNames`, the `.spells` file) |
-| `input/` | controller (`Pad`), keyboard and mouse, the Controls page row, the wheel's geometry (`RadialSelection`), what other plugins say (`Interop`) |
-| `wheels/` | the wheel model, one concern a file: `Model` (the `.iwp` file, what may go where), `Assign` (entries added, removed, moved), `Use` (using a slot, the repair hammer), `HudIcon`, and `Wheels` (the interface); `WheelsInternal.h` is what they share |
-| `overlays/` | what is drawn over the game's wheel: Magic wheel, ring picture, slot counters, wheel name |
-| `ammo/` | the Ammo wheel |
-| `favourites/` | the star column in the Inventory and Magic lists |
-| `slowtime/` | slowing the world while a wheel is open |
+| `core/` | Entry point, logging, settings, text and atomic-file helpers |
+| `engine/` | Unreal reflection, hooks, widgets and session helpers |
+| `game/` | Menus, inventory, quick keys, rows and custom names |
+| `input/` | Controller, keyboard, mouse and optional mod integration |
+| `wheels/` | Assignment storage, selection, item use and wheel state |
+| `overlays/` | Wheel themes, labels and counters |
+| `ammo/` | Ammo wheel |
+| `favourites/` | Favorite indicators and behavior |
+| `slowtime/` | Gameplay wheel slow motion |
 
-Headers with no engine code (for example `wheels/WheelStorage.h`, `input/CloseEpoch.h`) are what the `Tests` target checks.
+## Credits and license
 
-## Licence
+Based on [Improved Wheel Menu](https://github.com/ApocryphaRealm/ImprovedWheelMenuOR) by ApocryphaRealm. Its native radial, multi-entry slots, separate spell and arrow wheels, favorites and assignment panel form the foundation. Modifications are maintained by **cfa911**; original authorship and Git history are retained.
 
-GPL-3.0-or-later ([`dist/LICENSE`](dist/LICENSE), [`dist/NOTICE.md`](dist/NOTICE.md)). Built on
-[CommonLibOB64](https://github.com/libxse/commonlibob64) and its plugin template (GPL-3.0, with the modding exception in
-`EXCEPTIONS`); other linked components are listed in [`dist/THIRD_PARTY_NOTICES.md`](dist/THIRD_PARTY_NOTICES.md).
-
-While an Equipment or Magic assignment panel is open, Z / C or LT / RT cycle entries in the pointed slot; right-click advances. Triggers do not switch menu tabs while the panel is open.
-
-Minor issue: the direct-wheel shortcuts F6/F7/F8 can reset Caps Lock walking to running. Opening with R and direct 1-8 quick use preserve walking.
+**GPL-3.0-or-later:** see [LICENSE](dist/LICENSE), [NOTICE](dist/NOTICE.md) and [third-party notices](dist/THIRD_PARTY_NOTICES.md). Built with [CommonLibOB64](https://github.com/libxse/commonlibob64); its modding exception and other component notices remain in the distributed license files.
