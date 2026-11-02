@@ -86,7 +86,7 @@ To get started: tap **R**, point with the mouse, right click until the entry you
 | Point at a slot | **Right stick** |
 | Browse previous / next entry | **LT / RT** |
 | Use the pointed entry | **A** or **RB**, or release **LB** while pointing |
-| Switch previous / next wheel | **D-pad left / right** |
+| Switch previous / next wheel (gameplay wheel open) | **D-pad left / right** or **L3 / R3** |
 | Cancel without choosing | **B** |
 | Favorite / unfavorite the highlighted menu entry | **Select** |
 | Open / close the Inventory / Magic assign panel | **L3** |
