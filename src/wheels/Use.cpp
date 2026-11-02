@@ -382,6 +382,26 @@ namespace wheels
 			return;
 		}
 		const auto id = slot.entries[known];
+		if (inventory::IsScroll(id)) {
+			// Native scroll selection readies the Book's enchantment as selected magic.
+			if (inventory::Has(id)) {
+				g_hudCheckAt = {};
+				g_hudIconBefore = nullptr;
+				testhread::Post([id] {
+					if (!inventory::IsScroll(id) || !inventory::Has(id)) return;
+					auto* pc = RE::PlayerCharacter::GetSingleton();
+					auto* book = RE::TESForm::LookupByID<RE::TESObjectBOOK>(id);
+					if (!pc || !book) return;
+					inventory::SweepNativeSpellKeys();
+					// This native setter toggles the same scroll off; wheel selection must not.
+					if (pc->selectedScroll != book) {
+						static REL::Relocation<void (*)(RE::PlayerCharacter*, RE::TESObjectBOOK*)> setScroll{ REL::ID(406971) };
+						setScroll(pc, book);
+					}
+				});
+			}
+			return;
+		}
 		auto* spell = RE::TESForm::LookupByID<RE::SpellItem>(id);
 		auto* player = RE::PlayerCharacter::GetSingleton();
 		if (!spell || !player) {
@@ -405,6 +425,10 @@ namespace wheels
 				auto* pc = RE::PlayerCharacter::GetSingleton();
 				auto* sp = RE::TESForm::LookupByID<RE::SpellItem>(formID);
 				if (!pc || !sp || pc->selectedSpell == static_cast<RE::MagicItem*>(sp)) return;
+			if (pc->selectedScroll) {
+				static REL::Relocation<void (*)(RE::PlayerCharacter*, RE::TESObjectBOOK*)> setScroll{ REL::ID(406971) };
+				setScroll(pc, static_cast<RE::TESObjectBOOK*>(nullptr));
+			}
 				static REL::Relocation<void (*)(RE::PlayerCharacter*, RE::MagicItem*)> setSelected{ REL::ID(406972) };
 				setSelected(pc, static_cast<RE::MagicItem*>(sp));
 			});

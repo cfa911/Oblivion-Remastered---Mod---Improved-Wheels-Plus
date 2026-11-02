@@ -215,7 +215,7 @@ namespace wheels::detail
 				}
 				for (const auto id : slot.entries) {
 					const bool owned = RE::TESForm::LookupByID(id) != nullptr &&
-						(w == kMagic ? rows::PlayerHasSpell(id) : inventory::Has(id) && (w != kAmmo || IsAmmo(id)));
+						(w == kMagic ? rows::PlayerHasMagicEntry(id) : inventory::Has(id) && (w != kAmmo || IsAmmo(id)));
 					if (!owned) {
 						++unowned;
 						logger::info("wheels: {} 0x{:08X} on {} slot {} is not owned, kept (this character may have it in another save)",

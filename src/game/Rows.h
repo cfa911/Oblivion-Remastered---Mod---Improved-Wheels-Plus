@@ -19,7 +19,7 @@ namespace rows
 
 	// a container or barter list's highlighted row (the same row widget): the player's own item, if it is one
 	std::uint32_t HighlightedPlayerItemInContainer();
-	std::uint32_t HighlightedSpell();       // magic menu: the highlighted row's spell formID (0 = none / not a spell)
+std::uint32_t HighlightedSpell();       // magic menu: the highlighted row's spell formID (0 = none / not a spell)
 
 	UE::UObject* ItemIcon(std::uint32_t a_formID);    // the icon a row showed for it this session (nullptr = not seen)
 	UE::UObject* SpellIcon(std::uint32_t a_formID);
@@ -46,5 +46,7 @@ namespace rows
 	std::string               MagicRowKey(UE::UObject* a_row);
 	std::uint32_t             MagicRowSpell(UE::UObject* a_row);
 	bool                      TakeMagicRowsChanged();
+
+	bool PlayerHasMagicEntry(std::uint32_t a_formID); // learned spell or carried scroll
 
 }

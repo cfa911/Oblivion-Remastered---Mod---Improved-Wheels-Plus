@@ -19,7 +19,7 @@ namespace wheels::detail
 	// without an observable context transition. Do not erase stored entries on a transient list.
 	int KnownMagicEntry(const Slot& a_slot, int a_from, int a_dir, bool a_includeFrom)
 	{
-		return knownentry::Find(a_slot.entries, a_from, a_dir, a_includeFrom, rows::PlayerHasSpell);
+		return knownentry::Find(a_slot.entries, a_from, a_dir, a_includeFrom, rows::PlayerHasMagicEntry);
 	}
 
 	quickkeys::Icons MagicIcons()
@@ -244,9 +244,27 @@ namespace wheels::detail
 		}
 	}
 
+	// Reuse a depleted consumable only when the owner adds to a full slot.
+	void ReclaimDepletedConsumable(int a_wheel, int a_slot)
+	{
+		if (a_wheel != kMagic && a_wheel != kEquip) return;
+		auto& slot = g_wheels[a_wheel][a_slot];
+		if (static_cast<int>(slot.entries.size()) < Cap()) return;
+		for (int i = 0; i < static_cast<int>(slot.entries.size()); ++i) {
+			const auto id = slot.entries[i];
+			const bool consumable = inventory::IsScroll(id) ||
+				(a_wheel == kEquip && (Consumable(id) || MiscTool(id)));
+			if (consumable && !inventory::Has(id)) {
+				RemoveAt(a_wheel, a_slot, i, "depleted consumable replaced by new assignment");
+				return;
+			}
+		}
+	}
+
 	// Adds to a slot as its active entry (the Equipment wheel moves the game's key onto it).
 	bool AddTo(int a_wheel, int a_slot, std::uint32_t a_id, const char* a_why)
 	{
+		ReclaimDepletedConsumable(a_wheel, a_slot);
 		Slot& slot = g_wheels[a_wheel][a_slot];
 		if (static_cast<int>(slot.entries.size()) >= Cap()) {
 			logger::info("wheels: {} slot {} is full ({} entries) - {} not added", WheelName(a_wheel), a_slot + 1, Cap(),
@@ -291,6 +309,12 @@ namespace wheels::detail
 			}
 		}
 		const int idx = IndexOf(slot, a_arrived);
+		if (idx < 0 && a_arrived != previous) {
+			const auto beforeCount = slot.entries.size();
+			ReclaimDepletedConsumable(kEquip, a_slot);
+			// Removing the active entry can move its native key; restore the new assignment.
+			if (slot.entries.size() != beforeCount) inventory::SetKey(a_arrived, a_slot);
+		}
 		if (a_arrived == previous) {
 			// pressed again on the item the slot shows: out it goes, the next entry takes its place
 			RemoveAt(kEquip, a_slot, idx >= 0 ? idx : slot.active, "assign pressed again on the same item");
@@ -398,6 +422,7 @@ namespace wheels::detail
 		// then an empty slot, then any slot with room (the Ammo wheel: one arrow kind a slot, empty slots only)
 		for (int pass = 0; pass < (a_wheel == kAmmo ? 1 : 2); ++pass) {
 			for (int s = 0; s < inventory::kSlots; ++s) {
+				if (pass == 1) ReclaimDepletedConsumable(a_wheel, s);
 				const Slot& slot = g_wheels[a_wheel][s];
 				const bool fits = pass == 0 ? slot.entries.empty() : static_cast<int>(slot.entries.size()) < Cap();
 				if (fits && AddTo(a_wheel, s, a_id, "Favourite")) {

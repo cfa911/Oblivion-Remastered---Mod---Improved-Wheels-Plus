@@ -385,9 +385,35 @@ namespace rows
 
 		// A magic row's spell. The string-table key is the spell's full name in the game data; a spell the player made has no
 		// key, so the row's index decides (never its name: two spells may share one).
+
+		// Native Magic scroll list: KB docs/inventory/magic-scroll-filter-2026-10-30.md.
+		// Nodes: next +0, payload* +0x10. Payload: ItemChange* +0, exact Magic row index +8.
+		std::uint32_t ScrollAtIndexGuarded(const std::uintptr_t* a_head, int a_index)
+		{
+			__try {
+				for (std::uintptr_t node = a_head ? *a_head : 0, guard = 0; node && guard < 4096; ++guard) {
+					const auto payload = *reinterpret_cast<const std::uintptr_t*>(node + 0x10);
+					if (payload && *reinterpret_cast<const int*>(payload + 8) == a_index) {
+						auto* item = payload ? *reinterpret_cast<RE::ItemChange* const*>(payload) : nullptr;
+						auto* form = item ? item->object : nullptr;
+						if (!form || item->count <= 0 || form->GetFormType() != RE::FormType::Book) return 0;
+						auto* book = static_cast<RE::TESObjectBOOK*>(form);
+						return (book->data.flags & 1) != 0 ? book->GetFormID() : 0;
+					}
+					node = *reinterpret_cast<const std::uintptr_t*>(node);
+				}
+			} __except (EXCEPTION_EXECUTE_HANDLER) {
+			}
+			return 0;
+		}
+
 		std::uint32_t SpellOfRow(Kind& a_kind, UE::UObject* a_row)
 		{
 			const int idx = IndexOfRow(a_kind, a_row);
+			if (idx >= 0) {
+				static REL::Relocation<const std::uintptr_t*> scrollHead{ REL::ID(1464952) };
+				if (const auto scroll = ScrollAtIndexGuarded(scrollHead.get(), idx)) return scroll;
+			}
 			if (const auto id = SpellByName(KeyOfRow(a_kind, a_row))) {
 				if (idx >= 0) {
 					const int pos = ListPosition(id);
@@ -685,6 +711,7 @@ namespace rows
 	// the icon a magic row showed this session; else the spell's first effect's own icon, loaded from the paks
 	UE::UObject* SpellIcon(std::uint32_t a_formID)
 	{
+		if (inventory::IsScroll(a_formID)) return inventory::Has(a_formID) ? ItemIcon(a_formID) : nullptr;
 		if (!PlayerHasSpell(a_formID)) return nullptr;
 		Harvest();
 		if (const auto it = g_spellIcons.find(a_formID); it != g_spellIcons.end()) {
@@ -772,6 +799,12 @@ namespace rows
 		auto* form = RE::TESForm::LookupByID(a_formID);
 		const char* n = form ? RE::TESFullName::GetFullName(form) : nullptr;
 		return n && *n ? std::string(n) : std::format("0x{:08X}", a_formID);
+	}
+
+
+	bool PlayerHasMagicEntry(std::uint32_t a_formID)
+	{
+		return inventory::IsScroll(a_formID) ? inventory::Has(a_formID) : PlayerHasSpell(a_formID);
 	}
 
 }

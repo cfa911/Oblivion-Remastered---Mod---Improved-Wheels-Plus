@@ -117,7 +117,7 @@ namespace wheels
 			const int shown = w == kMagic ? KnownMagicEntry(slot, slot.active, +1, true) : slot.active;
 			for (int i = 0; i < static_cast<int>(slot.entries.size()); ++i) {
 				if ((w == kEquip && !Unreachable(s, slot.entries[i], keys).empty()) ||
-					(w == kMagic && !rows::PlayerHasSpell(slot.entries[i])) ||
+				(w == kMagic && !rows::PlayerHasMagicEntry(slot.entries[i])) ||
 					(w == kAmmo && (!IsAmmo(slot.entries[i]) || !inventory::Has(slot.entries[i])))) {
 					continue;
 				}
@@ -217,6 +217,7 @@ namespace wheels
 			RemoveAt(wheel, a_slot, idx, std::format("slot key {} pressed again on it", a_slot + 1));
 		} else {
 			RemoveFromOtherSlots(wheel, a_slot, id);   // an item is on one slot
+			ReclaimDepletedConsumable(wheel, a_slot);
 			if (static_cast<int>(slot.entries.size()) >= (wheel == kAmmo ? 1 : Cap())) {
 				RemoveAt(wheel, a_slot, static_cast<int>(slot.entries.size()) - 1, std::format("slot {} is full - its last entry leaves for the new one", a_slot + 1));
 			}

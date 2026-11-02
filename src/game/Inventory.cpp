@@ -610,4 +610,11 @@ namespace inventory
 	void EquipKeyed(std::uint32_t id) { QueueKeyed(id, KeyedAction::kEquip); }
 	void UnequipKeyed(std::uint32_t id) { QueueKeyed(id, KeyedAction::kUnequip); }
 	void ToggleKeyed(std::uint32_t id) { QueueKeyed(id, KeyedAction::kToggle); }
+
+	bool IsScroll(std::uint32_t a_formID)
+	{
+		auto* book = RE::TESForm::LookupByID<RE::TESObjectBOOK>(a_formID);
+		return book && (book->data.flags & 1) != 0;
+	}
+
 }

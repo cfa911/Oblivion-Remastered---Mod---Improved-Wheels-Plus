@@ -557,14 +557,15 @@ namespace keyboard
 				const bool typing = Printable(k.select) && Typing();
 				if (settings::Get().favouriteButton == XINPUT_GAMEPAD_BACK && context != menus::Menu::kNone) {
 					if (selectPressed && !typing) {
-						logger::info("keyboard: native favourite action");
+						logger::info("keyboard: native favourite action (wheel menus only)");
 						wheels::Favourite(context);
 					}
 				} else {
 					const auto item = settings::Get().favouriteButton == XINPUT_GAMEPAD_BACK ? rows::HighlightedPlayerItemInContainer() : 0;
 					if (item) {
 						if (selectPressed && !typing) wheels::ToggleItem(item);
-					} else {
+					} else if (panelMenu) {
+						// Only wheel menus use this fallback; naming in Alchemy is native text input.
 						press(k.select, XINPUT_GAMEPAD_BACK);
 					}
 				}

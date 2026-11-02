@@ -143,6 +143,7 @@ namespace wheels::detail
 	void RemoveLeavers();
 	void RemoveGoneInMenus();
 	void RemoveFromOtherSlots(int a_wheel, int a_keepSlot, std::uint32_t a_id);
+	void ReclaimDepletedConsumable(int a_wheel, int a_slot);
 	bool AddTo(int a_wheel, int a_slot, std::uint32_t a_id, const char* a_why);
 	bool AssignPending();   // the game's own assign is being watched (Settle reads the keys' change itself)
 	void Settle(int a_slot, std::uint32_t a_arrived);
