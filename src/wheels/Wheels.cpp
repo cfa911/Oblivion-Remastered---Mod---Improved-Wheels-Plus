@@ -25,6 +25,9 @@ namespace wheels::detail
 			g_hudCheckAt = {};
 			g_hudIconBefore = nullptr;
 			g_loadedFor.clear();
+			g_loadCandidate.clear();
+			g_loadCandidateAt = 0;
+			g_storageRetryAt = 0;
 			g_emptySetup.Reset();
 			g_initializeEmpty = false;
 			g_sanitized = false;
