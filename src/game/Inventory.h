@@ -62,4 +62,6 @@ namespace inventory
 
 	std::uint32_t WornAmmo();                   // the arrows worn now (0 = none); no bow needed. Reads only
 	void EquipAmmo(std::uint32_t a_formID);     // puts those arrows on as the whole stack, on the TES thread (nothing if worn already)
+	bool IsScroll(std::uint32_t a_formID);
+
 }

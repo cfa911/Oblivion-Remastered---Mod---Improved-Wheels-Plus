@@ -39,6 +39,7 @@ bool Typing() { return typing; }
 void press(int, int button) { if (down && !typing) { a_pad.wButtons |= button; any = true; } }
 void tick() {
 auto context = menus::current;
+const bool panelMenu = context == menus::Menu::kInventory || context == menus::Menu::kMagic;
 """ + block + r"""
 }
 int main() {
@@ -58,7 +59,7 @@ if (wheels::favourites != 3 || a_pad.wButtons) { std::puts("FAIL: magic"); retur
 down = false; tick(); menus::current = menus::Menu::kNone; down = true; tick();
 if (wheels::items != 1 || a_pad.wButtons) { std::puts("FAIL: own container item"); return 1; }
 down = false; tick(); rows::item = 0; down = true; tick();
-if (a_pad.wButtons != XINPUT_GAMEPAD_BACK) { std::puts("FAIL: other menu back fallback"); return 1; }
+if (a_pad.wButtons) { std::puts("FAIL: F in alchemy/unrelated menu must not inject controller Select"); return 1; }
 down = false; tick(); a_pad.wButtons = XINPUT_GAMEPAD_BACK; menus::current = menus::Menu::kInventory; down = true; tick();
 if (a_pad.wButtons != XINPUT_GAMEPAD_BACK || wheels::favourites != 4) { std::puts("FAIL: preserve physical pad input"); return 1; }
 down = false; tick(); a_pad.wButtons = 0; settings::values.favouriteButton = 0; down = true; tick();

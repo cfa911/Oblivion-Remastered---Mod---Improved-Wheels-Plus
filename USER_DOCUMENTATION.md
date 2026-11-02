@@ -201,3 +201,7 @@ Normal logging uses `[Log] uLogLevel=3`. If more detail is needed, temporarily u
 Based on [Improved Wheel Menu](https://www.nexusmods.com/oblivionremastered/mods/5671) 1.0.1 by ApocryphaRealm. The original provides the radial, multi-entry slots, separate Magic and Ammo wheels, favorites and assignment foundation. This fork adds keyboard and mouse support, expanded gear handling, controller options, per-character storage, custom-name handling, themes and fixes.
 
 Thanks to the OBSE64, Address Library and CommonLibOB64 teams. GPL-3.0-or-later; see [LICENSE](LICENSE) and [third-party notices](dist/THIRD_PARTY_NOTICES.md). Fork additions credited to cfa911.
+
+### Scrolls on the Magic wheel
+
+In the Magic menu, highlight a carried scroll in the Scrolls list, open the assignment panel and assign it to a Magic-wheel slot just like a spell. Selecting it from the gameplay Magic wheel readies the scroll through the normal item action. Scrolls are available while carried; depleted entries are skipped and become available again if you acquire more. Spells and scrolls can share a slot.
