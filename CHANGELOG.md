@@ -3,6 +3,22 @@
 Written as changes happen, not reconstructed afterwards (rule 61). Started 2026-09-29; the history before this file is
 in `git log`. A version number is issued by the version gate only once a build is seen working in game (rule 48).
 
+## 2.5.0 - 2026-11-02 - Improved Wheels Plus
+
+### Added
+- Assign scrolls to the Magic wheel, ready and cast them through the game's native scroll action, and see owned scroll counts.
+- Cycle gameplay wheels with controller L3 (previous) and R3 (next), alongside D-pad left/right.
+
+### Fixed
+- Full slots can accept a new assignment after a stored consumable is depleted, without clearing the cell or losing its remaining entries. Applies to Magic scrolls and Inventory consumables.
+- Typing a potion name in Alchemy no longer sends the wheel's F/Select controller fallback.
+- Protect wheel persistence while loading: wait for stable character identity, retry unreadable files, preserve files that arrive during initialization, and require a successful initial save before marking setup ready. These safeguards passed local reload/restart tests; the separately reported remote persistence issue remains unverified.
+
+### Changed
+- Simplified keyboard settings to one `[Keyboard] bKeyboardSupport` switch, including support without a connected controller.
+- Removed obsolete settings for animation speed, Ammo scale, favorite-star placement, armor assignment and the D-pad-down assignment shortcut. Their established behavior is now fixed; native L3 opens assignment panels.
+- Default wheel center-rest time is 400 ms.
+
 ## 2.4.2 - 2026-11-01 - Improved Wheels Plus
 
 ### Fixed
