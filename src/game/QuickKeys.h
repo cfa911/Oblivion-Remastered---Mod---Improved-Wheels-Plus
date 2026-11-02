@@ -55,7 +55,7 @@ namespace quickkeys
 	// kWheelMaterial); a_material, when given, receives the quickKeys_material widget. nullptr when not found
 	UE::UObject* WheelImage(UE::UObject* a_wheel, UE::UObject** a_material = nullptr);
 	bool Animating();         // the wheel changed visibility within the last ~0.9 s: it is popping up or out, so overlays follow it every read
-	void BoostAnimations();   // every read: while the wheel is opening or closing, its widget animations play faster (INI uAnimSpeedPercent)
+	void BoostAnimations();   // every read: while the wheel is opening or closing, its widget animations play faster (fixed at 300%)
 	int  PointedSlot();  // the slot under the pointer on whichever is showing, -1 for none
 	void CancelChoice(); // B on the HUD radial: the view model points at no slot, so the close uses nothing
 	// the centre rest snap: CancelChoice, the Blueprint's pointed key (QuickKeyID / CurrentScaledKeyID / HoveredKeyID)

@@ -267,8 +267,8 @@ namespace quickkeys
 
 	void BoostAnimations()
 	{
-		const int pct = settings::Get().animSpeedPercent;
-		if (pct <= 100 || GetTickCount64() > g_boostUntil.load()) return;
+		constexpr int pct = 300;
+		if (GetTickCount64() > g_boostUntil.load()) return;
 		auto* w = VisibleWheel();
 		if (!w || !reflect::Ok()) return;
 		static std::vector<std::int32_t> s_offsets;   // the wheel class's object fields that are widget animations, found once

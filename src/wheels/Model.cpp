@@ -20,24 +20,7 @@ namespace wheels::detail
 		return form && form->GetFormType() == RE::FormType::Ammo;
 	}
 
-	bool Wearable(std::uint32_t a_id, bool* a_shield)
-	{
-		auto* form = a_id ? RE::TESForm::LookupByID(a_id) : nullptr;
-		if (!form) return false;
-		const RE::TESBipedModelForm* biped = nullptr;
-		if (form->GetFormType() == RE::FormType::Armor) biped = form->As<RE::TESObjectARMO>();
-		else if (form->GetFormType() == RE::FormType::Clothing) biped = form->As<RE::TESObjectCLOT>();
-		if (!biped) return false;
-		if (a_shield) *a_shield = (biped->bipedModelData.bipedObjectSlots & kShieldSlot) != 0;
-		return true;
-	}
 
-	bool AllowedOnEquipment(std::uint32_t a_id)
-	{
-		if (settings::Get().armourOnWheel) return true;   // bArmourOnWheel: armour and clothing too
-		bool shield = false;
-		return !Wearable(a_id, &shield) || shield;
-	}
 
 	std::string NameOf(int a_wheel, std::uint32_t a_id)
 	{
