@@ -55,9 +55,6 @@ namespace pad
 		menus::Menu g_prevMenu = menus::Menu::kNone;
 
 		// inventory / magic menu: D-pad down timed as tap or hold
-		bool              g_menuDownHeld = false;
-		bool              g_menuDownFired = false;
-		Clock::time_point g_menuDownAt{};
 
 		// gameplay: the wheel button latched open by a tap
 		bool              g_latched = false;
@@ -67,7 +64,6 @@ namespace pad
 		bool              g_downInMenu = false;     // a menu (not the wheel - it only opens after the press) was up at the press
 		Clock::time_point g_pendingSince{};
 		bool              g_sawRadialOpen = false;  // the radial's open edge, for the press-to-shown time in the log
-		int  g_pulseDown = 0;   // reads left of a replayed D-pad down tap
 		bool g_swallowB = false;   // B was used to back out of the panel / radial: the game never sees it, until let go
 		int  g_centreStick = 0;    // reads left with the right stick held centred (a cancelled radial must not point anywhere)
 		int g_pulseLS = 0;     // reads left of a synthetic left stick click (toggles the menu's assign panel)
@@ -348,11 +344,6 @@ namespace pad
 			}
 		}
 
-		void ResetMenuState()
-		{
-			g_menuDownHeld = false;
-			g_menuDownFired = false;
-		}
 
 		// One controller read as the rules see it: the buttons as read, what went down and up, the time, the menu up, and the
 		// buttons the game will see (out). The steps below are the parts of Rewrite, in its order.
@@ -398,7 +389,6 @@ namespace pad
 		void TrackMenu(menus::Menu a_menu)
 		{
 			if (a_menu != g_prevMenu) {
-				ResetMenuState();
 				SetMagicPanel(false);
 				if (a_menu != menus::Menu::kNone) {
 					g_latched = false;       // a menu opening ends a latched wheel
@@ -462,27 +452,8 @@ namespace pad
 					out |= XINPUT_GAMEPAD_Y;   // the game's sorting, moved from Y to the stick click
 				}
 			}
-			if (settings::Get().dpadDownPanel) {   // bDpadDownPanel=0: D-pad down stays the game's; L3 (Show Shortcuts) opens the panel natively
-				out &= ~XINPUT_GAMEPAD_DPAD_DOWN;
-				if (pressed & XINPUT_GAMEPAD_DPAD_DOWN) {
-					g_menuDownHeld = true;
-					g_menuDownFired = false;
-					g_menuDownAt = now;
-				}
-				if (g_menuDownHeld && !g_menuDownFired && (raw & XINPUT_GAMEPAD_DPAD_DOWN) && now - g_menuDownAt >= kHoldThreshold) {
-					g_menuDownFired = true;
-					g_pulseLS = kPulseReads;   // the game's own Show/Hide Shortcuts
-					logger::info("pad: D-pad down held in the {} - assign panel toggled", menus::Name(menu));
-					}
-				if (released & XINPUT_GAMEPAD_DPAD_DOWN) {
-					if (g_menuDownHeld && !g_menuDownFired) {
-						g_pulseDown = kPulseReads;   // a tap: the list moves one row, as before
-					}
-					ResetMenuState();
-				}
-			}
 			if (quickkeys::PanelOpen() || (menu == menus::Menu::kMagic && quickkeys::MagicPanelUp())) {
-				// B backs out of the panel (the game's own toggle, as the hold on D-pad down); the next B leaves the menu
+				// B backs out of the panel using the game's L3 toggle; the next B leaves the menu
 				if (pressed & XINPUT_GAMEPAD_B) {
 					g_swallowB = true;
 					g_pulseLS = kPulseReads;
@@ -926,7 +897,6 @@ namespace pad
 			wheels::Tick((raw & XINPUT_GAMEPAD_A) != 0);
 
 			// synthetic presses
-			if (g_pulseDown > 0) { out |= XINPUT_GAMEPAD_DPAD_DOWN; --g_pulseDown; }
 			if (g_pulseLS > 0) { out |= XINPUT_GAMEPAD_LEFT_THUMB; --g_pulseLS; }
 
 			a_pad.wButtons = out;
@@ -967,7 +937,7 @@ namespace pad
 				static bool s_said = false;
 				if (!s_said) {
 					s_said = true;
-					logger::info("pad: no controller is connected - the game is handed an idle pad so the keyboard rules run every frame (INI [Keyboard] bVirtualPadWhenNone)");
+					logger::info("pad: no controller is connected - the game is handed an idle pad so the keyboard rules run every frame ([Keyboard] bKeyboardSupport)");
 				}
 				*a_state = blank;   // no pad connected: hand over the keyboard state alone
 				a_state->Gamepad = probe;

@@ -120,8 +120,6 @@ namespace wheels::detail
 	// Model.cpp: the model and its file
 	const char* WheelName(int a_wheel);
 	bool IsAmmo(std::uint32_t a_id);
-	bool Wearable(std::uint32_t a_id, bool* a_shield = nullptr);
-	bool AllowedOnEquipment(std::uint32_t a_id);
 	std::string NameOf(int a_wheel, std::uint32_t a_id);
 	std::filesystem::path FileFor(const std::string& a_name);
 	void Save();

@@ -125,7 +125,7 @@ namespace ammo
 		int               g_drawnPointed = -2;
 		WORD              g_swallow = 0;             // buttons the wheel used: the game never sees them, until let go
 
-		double Radius() { return 317.0 * settings::Get().ammoScalePercent / 100.0; }   // half of the HUD wheel's 634
+		double Radius() { return 317.0; }   // half of the HUD wheel's 634
 
 		// The entries, as in the Skyrim Perfected Wheeler's ammo wheel (the owner, 2026-09-30: "if you only have one arrow
 		// ... favorited to it, then it centers to the middle of the semicircle and for every additional favorited arrow type

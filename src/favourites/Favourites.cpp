@@ -135,11 +135,11 @@ namespace favourites
 			// An inventory row's star sits in the margin before the item's icon (the old column at the row's right edge stood under the sort
 			// headers and read as a sorted column). The row's widgets lie on a canvas (inv_entry_panel: the focus box, the list background and the
 			// row's horizontal box), so the star is a canvas child of its own - anchored to the row's left edge, centred on its height - and the
-			// row's columns stay where the headers are. bFavouriteStarAtLeft=0 keeps the old column; iFavouriteStarX is measured from where the row's content starts.
-			const int    left = settings::Get().starX;
+			// Row columns stay aligned with their headers; the star sits in the left margin.
+			constexpr int left = 6;
 			bool         onCanvas = false;
 			UE::UObject* slot = nullptr;
-			if (settings::Get().starAtLeft && overlay) {
+			if (overlay) {
 				const char* canvasName = a_magic ? "Magic_entry_panel" : "inv_entry_panel";
 				auto*       canvas = Prop(a_row, canvasName);
 				if (!canvas) canvas = ui::FindInTree(a_row, canvasName);
@@ -154,9 +154,9 @@ namespace favourites
 					ui::CallFirst(slot, L"SetAutoSize", &noAuto, sizeof(noAuto));
 					onCanvas = true;
 					// The row's own bounds start at its icon, and anything outside them is clipped: the row's content (icon, name, columns) is moved
-					// right by iFavouriteStarSpace - a left padding on its first child, once (read first: a row that is built again keeps it) - and the
+					// right by 44 pixels with left padding on its first child (read first: a reused row keeps it) - and the
 					// star sits in the room that makes.
-					const float space = static_cast<float>(settings::Get().starSpace);
+					constexpr float space = 44.0f;
 					const char* firstName = a_magic ? "Spacer_97" : "inv_entry_icon_overlay";   // the first child of the row's box
 					auto*       first = Prop(a_row, firstName);
 					if (!first) first = ui::FindInTree(a_row, firstName);

@@ -290,17 +290,6 @@ namespace wheels::detail
 				}
 			}
 		}
-		if (!AllowedOnEquipment(a_arrived)) {
-			inventory::ClearKey(a_arrived);
-			if (previous) {
-				inventory::SetKey(previous, a_slot);
-			}
-			logger::info("wheels: the game assigned {} to slot {} - armour and clothing never go on the wheel (shields do); the slot keeps {}",
-				inventory::NameOf(a_arrived), a_slot + 1, previous ? inventory::NameOf(previous) : "nothing");
-			Save();
-			PreloadChangedIcons(original);
-			return;
-		}
 		const int idx = IndexOf(slot, a_arrived);
 		if (a_arrived == previous) {
 			// pressed again on the item the slot shows: out it goes, the next entry takes its place
@@ -379,21 +368,6 @@ namespace wheels::detail
 	// Y: on its wheel (the first slot with room) or off it (wherever it is)
 	void ToggleFavourite(int a_wheel, std::uint32_t a_id)
 	{
-		// armour and clothing: a favourite, never on the wheel (shields go on it)
-		if (a_wheel == kEquip && !AllowedOnEquipment(a_id)) {
-			Slot& fav = g_wheels[kFav][0];
-			if (const int idx = IndexOf(fav, a_id); idx >= 0) {
-				fav.entries.erase(fav.entries.begin() + idx);
-				logger::info("wheels: Favourite toggled off - {} (armour or clothing: a favourite, not on the wheel)", inventory::NameOf(a_id));
-			} else {
-				fav.entries.push_back(a_id);
-				logger::info("wheels: Favourite - {} is a favourite now (armour or clothing: not put on the wheel; shields go on it)",
-					inventory::NameOf(a_id));
-			}
-			fav.active = fav.entries.empty() ? -1 : 0;
-			Save();
-			return;
-		}
 		const auto before = inventory::Keys();
 		for (int s = 0; s < inventory::kSlots; ++s) {
 			const int idx = IndexOf(g_wheels[a_wheel][s], a_id);
@@ -450,15 +424,6 @@ namespace wheels::detail
 					continue;   // a removal above re-seated the slot
 				}
 				const auto id = g_wheels[kEquip][s].entries[i];
-				if (!AllowedOnEquipment(id)) {
-					RemoveAt(kEquip, s, i, "armour and clothing never go on the wheel (shields do) - it stays a favourite");
-					if (IndexOf(g_wheels[kFav][0], id) < 0) {
-						g_wheels[kFav][0].entries.push_back(id);
-						g_wheels[kFav][0].active = 0;
-					}
-					++moved;
-					continue;
-				}
 				if (!IsAmmo(id)) {
 					continue;
 				}

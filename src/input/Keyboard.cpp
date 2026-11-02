@@ -427,7 +427,7 @@ namespace keyboard
 	bool PresentWhenNoPad()
 	{
 		const auto& k = settings::Get().keyboard;
-		return k.enabled && k.padWhenNone;
+		return k.enabled;
 	}
 
 	bool Apply(XINPUT_GAMEPAD& a_pad)

@@ -211,10 +211,6 @@ namespace wheels
 			logger::info("wheels: slot key {} in the {} - no item or spell highlighted", a_slot + 1, menus::Name(a_menu));
 			return;
 		}
-		if (wheel == kEquip && !AllowedOnEquipment(id)) {
-			ToggleFavourite(kEquip, id);   // armour with bArmourOnWheel=0: a favourite, never on the wheel
-			return;
-		}
 		const auto before = inventory::Keys();
 		Slot&      slot = g_wheels[wheel][a_slot];
 		if (const int idx = IndexOf(slot, id); idx >= 0) {

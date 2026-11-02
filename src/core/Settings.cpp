@@ -78,11 +78,7 @@ namespace settings
 			v.entriesPerSlot = ReadInt(ini, L"Wheel", L"uEntriesPerSlot", v.entriesPerSlot, 1, 16);
 			v.pointFilledOnly = ReadInt(ini, L"Wheel", L"bPointFilledOnly", v.pointFilledOnly ? 1 : 0, 0, 1) != 0;
 			v.blockFavouriteDropSell = ReadInt(ini, L"Wheel", L"bBlockFavouriteDropSell", v.blockFavouriteDropSell ? 1 : 0, 0, 1) != 0;
-			v.starAtLeft = ReadInt(ini, L"Wheel", L"bFavouriteStarAtLeft", v.starAtLeft ? 1 : 0, 0, 1) != 0;
-			v.starX = ReadInt(ini, L"Wheel", L"iFavouriteStarX", v.starX, 0, 400);
-			v.starSpace = ReadInt(ini, L"Wheel", L"iFavouriteStarSpace", v.starSpace, 0, 200);
 			v.stayOpenAfterUse = ReadInt(ini, L"Wheel", L"bStayOpenAfterUse", v.stayOpenAfterUse ? 1 : 0, 0, 1) != 0;
-			v.armourOnWheel = ReadInt(ini, L"Wheel", L"bArmourOnWheel", v.armourOnWheel ? 1 : 0, 0, 1) != 0;
 			v.rememberWheel = ReadInt(ini, L"Wheel", L"bRememberWheel", v.rememberWheel ? 1 : 0, 0, 1) != 0;
 			v.showSlotCapacity = ReadInt(ini, L"Wheel", L"bShowSlotCapacity", v.showSlotCapacity ? 1 : 0, 0, 1) != 0;
 			v.theme.magic = ReadInt(ini, L"Theme", L"bMagicWheel", 1, 0, 1) != 0;
@@ -93,7 +89,6 @@ namespace settings
 			v.ammoWheel = ReadInt(ini, L"AmmoWheel", L"bEnabled", v.ammoWheel, 0, 1) != 0;
 			v.ammoButton = ReadInt(ini, L"AmmoWheel", L"uButton", v.ammoButton, 0, 0xFFFF);
 			v.ammoCentred = ReadInt(ini, L"AmmoWheel", L"uPosition", v.ammoCentred ? 1 : 0, 0, 1) != 0;
-			v.ammoScalePercent = ReadInt(ini, L"AmmoWheel", L"uScalePercent", v.ammoScalePercent, 50, 200);
 			v.display.uiScalePercent = ReadInt(ini, L"Display", L"uUiScalePercent", v.display.uiScalePercent, 0, 500);
 			v.display.cellRingPercent = ReadInt(ini, L"Display", L"uCellRingPercent", v.display.cellRingPercent, 30, 100);
 			v.display.cellHitPercent = ReadInt(ini, L"Display", L"uCellHitPercent", v.display.cellHitPercent, 5, 60);
@@ -104,16 +99,13 @@ namespace settings
 			v.equipmentWheelButton = ReadInt(ini, L"Wheel", L"uEquipmentWheelButton", 0, 0, 0xFFFF);
 			v.magicWheelButton = ReadInt(ini, L"Wheel", L"uMagicWheelButton", 0, 0, 0xFFFF);
 			v.ammoWheelButton = ReadInt(ini, L"Wheel", L"uAmmoWheelButton", 0, 0, 0xFFFF);
-			v.animSpeedPercent = ReadInt(ini, L"Wheel", L"uAnimSpeedPercent", v.animSpeedPercent, 100, 1000);
 			v.wheelButton = ReadInt(ini, L"Wheel", L"uWheelButton", v.wheelButton, 0, 0xFFFF);
 			v.favouriteButton = ReadInt(ini, L"Controller", L"uFavouriteButton", v.favouriteButton, 0, 0xFFFF);
-			v.dpadDownPanel = ReadInt(ini, L"Controller", L"bDpadDownPanel", v.dpadDownPanel ? 1 : 0, 0, 1) != 0;
-			logger::info("settings: D-pad down hold opens the panel in menus: {}", v.dpadDownPanel ? "on" : "off (L3, the game's own)");
 			logger::info("settings: the wheel button is 0x{:04X}", v.wheelButton);
 			logger::info("settings: favourites on controller button 0x{:04X}", v.favouriteButton);
 			{   // [Keyboard]
 				auto& k = v.keyboard;
-				k.enabled = ReadInt(ini, L"Keyboard", L"bEnabled", k.enabled ? 1 : 0, 0, 1) != 0;
+				k.enabled = ReadInt(ini, L"Keyboard", L"bKeyboardSupport", k.enabled ? 1 : 0, 0, 1) != 0;
 				const auto key = [&](const wchar_t* a_key, int& a_into) {
 					const auto text = ReadStr(ini, L"Keyboard", a_key, L"");
 					if (text.empty()) return;   // not in the file: the compiled default stays
@@ -151,15 +143,14 @@ namespace settings
 					}
 				}
 				k.wheelToggle = ReadInt(ini, L"Keyboard", L"bWheelToggle", k.wheelToggle ? 1 : 0, 0, 1) != 0;
-				k.padWhenNone = ReadInt(ini, L"Keyboard", L"bVirtualPadWhenNone", k.padWhenNone ? 1 : 0, 0, 1) != 0;
 				k.replaceQuickKeys = ReadInt(ini, L"Keyboard", L"bReplaceQuickKeys", k.replaceQuickKeys ? 1 : 0, 0, 1) != 0;
 				logger::info("settings: keyboard cancel binding removed; direct slot activation, wheel shortcuts and panel entry cycling enabled");
-				logger::info("settings: keyboard as a virtual controller {} (LB 0x{:02X}, RB 0x{:02X}, LT 0x{:02X}, RT 0x{:02X}, Select 0x{:02X}, slot 1 0x{:02X})",
+				logger::info("settings: keyboard/mouse support {} (LB 0x{:02X}, RB 0x{:02X}, LT 0x{:02X}, RT 0x{:02X}, Select 0x{:02X}, slot 1 0x{:02X})",
 					k.enabled ? "on" : "off", k.lb, k.rb, k.lt, k.rt, k.select, k.slots[0]);
 			}
 			g_values = v;
-			logger::info("settings: {} read (uLogLevel={}, uEntriesPerSlot={}, bCentreRestSnap={}, uRestSnapMs={}, ammo wheel {} on button 0x{:04X} at {}%)",
-				ini.string(), v.logLevel, v.entriesPerSlot, v.centreRestSnap, v.restSnapMs, v.ammoWheel ? "on" : "off", v.ammoButton, v.ammoScalePercent);
+			logger::info("settings: {} read (uLogLevel={}, uEntriesPerSlot={}, bCentreRestSnap={}, uRestSnapMs={}, ammo wheel {} on button 0x{:04X})",
+				ini.string(), v.logLevel, v.entriesPerSlot, v.centreRestSnap, v.restSnapMs, v.ammoWheel ? "on" : "off", v.ammoButton);
 		} else {
 			g_values = v;
 			logger::warn("settings: {} not found - compiled defaults in use (uLogLevel={}, uEntriesPerSlot={})", ini.string(), v.logLevel, v.entriesPerSlot);
