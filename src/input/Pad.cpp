@@ -567,15 +567,20 @@ namespace pad
 			}
 		}
 
-		// the radial is up: D-pad L/R switch wheels, the stick points (filled slots only, the centre rest snap)
+	// Gameplay radial: D-pad L/R and L3/R3 switch wheels; the stick points.
 		void PointRadial(Read& r)
 		{
 			XINPUT_GAMEPAD&   a_pad = r.pad;
 			const WORD        pressed = r.pressed;
 			const auto        now = r.now;
 			const auto previousWheel = wheels::Active();
-			if (pressed & XINPUT_GAMEPAD_DPAD_LEFT) wheels::SwitchWheel(-1);
-			if (pressed & XINPUT_GAMEPAD_DPAD_RIGHT) wheels::SwitchWheel(+1);
+		// Consume stick clicks while the wheel is open so they cannot trigger gameplay actions.
+		r.out &= ~(XINPUT_GAMEPAD_LEFT_THUMB | XINPUT_GAMEPAD_RIGHT_THUMB);
+		if (pressed & (XINPUT_GAMEPAD_LEFT_THUMB | XINPUT_GAMEPAD_RIGHT_THUMB)) {
+			logger::info("pad: gameplay wheel stick click");
+		}
+		if (pressed & (XINPUT_GAMEPAD_DPAD_LEFT | XINPUT_GAMEPAD_LEFT_THUMB)) wheels::SwitchWheel(-1);
+		if (pressed & (XINPUT_GAMEPAD_DPAD_RIGHT | XINPUT_GAMEPAD_RIGHT_THUMB)) wheels::SwitchWheel(+1);
 			if (wheels::Active() != previousWheel) g_stayUsedSlot = -1;
 			SnapToFilled(a_pad);
 			RestSnap(a_pad, now);
