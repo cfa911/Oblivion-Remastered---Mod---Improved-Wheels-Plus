@@ -271,7 +271,8 @@ namespace wheels::detail
 				NameOf(a_wheel, a_id));
 			return false;
 		}
-		if (a_wheel == kEquip && !inventory::SetKey(a_id, a_slot)) {
+		// a starting item's first SetKey only starts making its inventory entry (IWP-041): the assignment stays, the key follows
+		if (a_wheel == kEquip && !inventory::SetKey(a_id, a_slot) && !inventory::KeyPending(a_id)) {
 			return false;
 		}
 		slot.entries.push_back(a_id);

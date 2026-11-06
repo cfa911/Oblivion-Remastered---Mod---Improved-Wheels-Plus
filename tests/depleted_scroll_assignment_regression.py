@@ -26,7 +26,7 @@ namespace logger { template<class...T>void info(T...){} }
 namespace inventory {
 bool Has(std::uint32_t id){return id!=999 && id!=200 && id!=201 && !(id>=300 && id<=304);}
 bool IsScroll(std::uint32_t id){return id>=200 && id<=202;}
-bool SetKey(std::uint32_t,int){return true;}
+bool SetKey(std::uint32_t,int){return true;} bool KeyPending(std::uint32_t){return false;}
 }
 bool Consumable(std::uint32_t id){return id>=300 && id<=302;}
 bool MiscTool(std::uint32_t id){return id==303 || id==304;}

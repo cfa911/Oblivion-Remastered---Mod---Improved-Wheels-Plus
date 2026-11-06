@@ -6,6 +6,10 @@ in `git log`. A version number is issued by the version gate only once a build i
 ## Unreleased
 
 ### Fixed
+- IWP-041: starting gear from the character's own record (the prison clothes) can be assigned by click, controller and number key
+  on the first try, shows its picture and count, and works from the wheel. The held count now adds the base record to the
+  inventory change (the game's own rule); an item without an inventory entry gets one (change 0) before its quick key is set.
+- A not-carried item's "not carried" warning is logged once instead of every 100 ms.
 - IWP-039: wheels no longer come up empty after a restart when the game reports a different character seed. Wheel files are now
   keyed on the save's CharacterId (`<CharacterId>.iwp`, `.spells`), with the old name-and-seed file as fallback.
 - A missing wheel file no longer wipes the save's native quick keys or writes an empty file when another file of the same
