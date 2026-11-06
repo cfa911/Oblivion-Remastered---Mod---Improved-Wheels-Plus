@@ -42,7 +42,9 @@ namespace ui
 		__try {
 			a_obj->ProcessEvent(a_fn, a_params);
 			return true;
-		} __except (EXCEPTION_EXECUTE_HANDLER) {
+		} __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+			// access violations only (as reflect::Guarded): swallowing any other exception unwinds engine frames without their
+			// destructors and can leave engine locks held
 			return false;
 		}
 	}

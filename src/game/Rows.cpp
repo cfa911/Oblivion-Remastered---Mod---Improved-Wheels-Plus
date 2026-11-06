@@ -33,6 +33,7 @@ namespace rows
 			std::int32_t weight = -1, count = -1;   // Weight (float), Count (int32): what tells apart items that share a typed name
 			reflect::Handle highlighted;   // kept across frames: resolved through its slot before every use
 			UE::UFunction* fnSelection = nullptr;   // this row class's BP_OnItemSelectionChanged
+			UE::UFunction* fnReleased = nullptr;   // this row class's BP_OnEntryReleased (the row is recycled for another item)
 			std::unordered_map<UE::UObject*, std::int32_t> seen;   // row -> its object-array slot
 		};
 		Kind g_inventory, g_magic;
@@ -228,11 +229,21 @@ namespace rows
 			++g_rowGeneration;
 			a_kind.seen.insert_or_assign(a_obj, a_obj->internalIndex);   // live: the engine is calling it now
 			g_dirty = true;
-			if (!a_kind.fnSelection && pe::FunctionName(a_fn) == "BP_OnItemSelectionChanged") {
-				a_kind.fnSelection = a_fn;
+			if (!a_kind.fnSelection || !a_kind.fnReleased) {
+				const auto& name = pe::FunctionName(a_fn);
+				if (!a_kind.fnSelection && name == "BP_OnItemSelectionChanged") a_kind.fnSelection = a_fn;
+				if (!a_kind.fnReleased && name == "BP_OnEntryReleased") a_kind.fnReleased = a_fn;
 			}
-			if (a_fn == a_kind.fnSelection && a_params && *static_cast<const bool*>(a_params)) {
-				a_kind.highlighted = reflect::Hold(a_obj);
+			// rows are recycled on scroll (released, then given another item): a highlight kept on a deselected or released row
+			// would point at whatever item the row shows next, so it is dropped (the next selection sets it again)
+			if (a_fn == a_kind.fnSelection && a_params) {
+				if (*static_cast<const bool*>(a_params)) {
+					a_kind.highlighted = reflect::Hold(a_obj);
+				} else if (a_kind.highlighted.ptr == a_obj) {
+					a_kind.highlighted = {};
+				}
+			} else if (a_fn == a_kind.fnReleased && a_kind.highlighted.ptr == a_obj) {
+				a_kind.highlighted = {};
 			}
 		}
 

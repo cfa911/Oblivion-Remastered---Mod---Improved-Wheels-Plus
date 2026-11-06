@@ -16,6 +16,12 @@ in `git log`. A version number is issued by the version gate only once a build i
   character name exists.
 - Item and spell names are no longer read from a text the game has already freed or never filled; such a text now reads
   as empty instead of risking a "Pure virtual function being called" crash (code review 2026-11-06, finding 1).
+- After scrolling a list with the mouse wheel, assigning or favouriting no longer acts on the item the pointer was over
+  before the scroll (code review finding 3).
+- The safety guard around game UI calls now only catches invalid memory reads; other errors are no longer swallowed in a
+  way that could leave the game hanging (finding 4).
+- Keeping the game's own keyboard quick keys switched off no longer searches the whole object table every 5 seconds; the full
+  search runs only when you return to gameplay (finding 5).
 
 ### Changed
 - Existing `<name> _<seed>.iwp` files are adopted once into the CharacterId file and kept on disk: the exact file first, else
