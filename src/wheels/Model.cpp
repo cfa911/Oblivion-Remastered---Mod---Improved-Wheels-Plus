@@ -393,6 +393,10 @@ namespace wheels::detail
 			Slot& slot = g_wheels[kEquip][s];
 			const int keyed = keys[s] ? IndexOf(slot, keys[s]) : -1;
 			const int want = slot.active >= 0 && slot.active < static_cast<int>(slot.entries.size()) ? slot.active : -1;
+			if (want >= 0 && want != keyed && inventory::KeyPending(slot.entries[want])) {
+				inventory::SetKey(slot.entries[want], s);   // starts or waits for its inventory entry (IWP-041); the choice stays
+				continue;
+			}
 			if (want >= 0 && want != keyed && Unreachable(s, slot.entries[want], keys).empty() && inventory::SetKey(slot.entries[want], s)) {
 				logger::info("wheels: Equipment slot {}'s choice {} put back on the game's key {} (it held {})", s + 1, inventory::NameOf(slot.entries[want]),
 					s + 1, keys[s] ? inventory::NameOf(keys[s]) : std::string("nothing"));

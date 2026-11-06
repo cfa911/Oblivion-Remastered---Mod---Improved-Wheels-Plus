@@ -2,6 +2,9 @@
 
 #include "engine/TesThread.h"
 
+#include <mutex>
+#include <unordered_set>
+
 namespace inventory
 {
 	namespace
@@ -61,6 +64,172 @@ namespace inventory
 			return nullptr;
 		}
 
+		// IWP-041: the game holds the player's base container count plus the change entry's count (a delta). Starting gear such as
+		// the prison clothes carries a change entry with count 0 while one is held. Native merged lookup RVA 0x663E080 (KB
+		// docs/game-internals.md "An item's count = base container count + ItemChange::count"): objectList at TESContainer +0x10,
+		// ContainerObject count +0x0 and form +0x8, a negative count read by its magnitude.
+		int BaseCountGuarded(std::uint32_t a_formID)
+		{
+			struct BaseEntry
+			{
+				std::int32_t  count;
+				std::int32_t  pad;
+				RE::TESForm*  form;
+			};
+			using BaseNode = RE::BSSimpleList<RE::ContainerObject*>::Node;
+			__try {
+				auto* player = RE::PlayerCharacter::GetSingleton();
+				auto* object = player ? player->data.objectReference : nullptr;
+				if (!object || object->GetFormType() != RE::FormType::NPC) {
+					return 0;
+				}
+				const RE::TESContainer* container = static_cast<RE::TESNPC*>(object);
+				int total = 0;
+				for (auto* node = reinterpret_cast<const BaseNode*>(&container->objectList); node; node = node->next) {
+					const auto* entry = reinterpret_cast<const BaseEntry*>(node->item);
+					if (entry && entry->form && entry->form->GetFormID() == a_formID) {
+						total += entry->count < 0 ? -entry->count : entry->count;
+					}
+				}
+				return total;
+			} __except (EXCEPTION_EXECUTE_HANDLER) {
+				return 0;
+			}
+		}
+
+		// the object pointer the player's base record holds for a form (nullptr = none). The typed LookupByID<TESBoundObject> is null
+		// for clothing (diagnostic trace 2026-11-06, KB docs/game-internals.md); the game's merged lookup copies this very pointer.
+		RE::TESBoundObject* BaseObjectGuarded(std::uint32_t a_formID)
+		{
+			struct BaseEntry
+			{
+				std::int32_t  count;
+				std::int32_t  pad;
+				RE::TESForm*  form;
+			};
+			using BaseNode = RE::BSSimpleList<RE::ContainerObject*>::Node;
+			__try {
+				auto* player = RE::PlayerCharacter::GetSingleton();
+				auto* object = player ? player->data.objectReference : nullptr;
+				if (!object || object->GetFormType() != RE::FormType::NPC) {
+					return nullptr;
+				}
+				const RE::TESContainer* container = static_cast<RE::TESNPC*>(object);
+				for (auto* node = reinterpret_cast<const BaseNode*>(&container->objectList); node; node = node->next) {
+					const auto* entry = reinterpret_cast<const BaseEntry*>(node->item);
+					if (entry && entry->form && entry->form->GetFormID() == a_formID) {
+						return static_cast<RE::TESBoundObject*>(entry->form);
+					}
+				}
+			} __except (EXCEPTION_EXECUTE_HANDLER) {
+			}
+			return nullptr;
+		}
+
+		// how many of a form the player holds: base container plus its change entry (a_item may be nullptr: no change entry)
+		int HeldGuarded(const RE::ItemChange* a_item, std::uint32_t a_formID)
+		{
+			__try {
+				return BaseCountGuarded(a_formID) + (a_item ? a_item->count : 0);
+			} __except (EXCEPTION_EXECUTE_HANDLER) {
+				return 0;
+			}
+		}
+
+		// starting gear that has no change entry yet, found by its display name in the base container (0 = none held)
+		std::uint32_t BaseNamedGuarded(RE::BSSimpleList<RE::ItemChange*>* a_items, const char* a_name)
+		{
+			struct BaseEntry
+			{
+				std::int32_t  count;
+				std::int32_t  pad;
+				RE::TESForm*  form;
+			};
+			using BaseNode = RE::BSSimpleList<RE::ContainerObject*>::Node;
+			__try {
+				auto* player = RE::PlayerCharacter::GetSingleton();
+				auto* object = player ? player->data.objectReference : nullptr;
+				if (!object || object->GetFormType() != RE::FormType::NPC) {
+					return 0;
+				}
+				const RE::TESContainer* container = static_cast<RE::TESNPC*>(object);
+				for (auto* node = reinterpret_cast<const BaseNode*>(&container->objectList); node; node = node->next) {
+					const auto* entry = reinterpret_cast<const BaseEntry*>(node->item);
+					if (!entry || !entry->form) {
+						continue;
+					}
+					const char* n = RE::TESFullName::GetFullName(entry->form);
+					const auto  id = entry->form->GetFormID();
+					if (n && std::strcmp(a_name, n) == 0 && HeldGuarded(FindGuarded(a_items, id), id) > 0) {
+						return id;
+					}
+				}
+			} __except (EXCEPTION_EXECUTE_HANDLER) {
+			}
+			return 0;
+		}
+
+		std::unordered_set<std::uint32_t> g_warnedNotCarried;   // "not carried" is logged once per item, not every 100 ms
+		std::unordered_set<std::uint32_t> g_entryPending;       // entry creations posted, not yet run (the TES thread may be paused)
+		std::mutex                        g_entryLock;
+
+		// IWP-041: an item held only through the base record has no change entry to carry an ExtraQuickKey. It gets the entry the game's
+		// own add/move/equip routines build inline (0x18 ItemChange: extraData +0, count +8, object +0x10; list node { item, next };
+		// KB docs/reverse-engineering/native-hotkey-routines.md), with count 0 because the base record already holds it - the game still
+		// counts the same number. Appended at the end of the player's list. TES thread only.
+		bool AppendEntryGuarded(RE::BSSimpleList<RE::ItemChange*>* a_items, RE::TESBoundObject* a_object)
+		{
+			__try {
+				auto* entry = static_cast<RE::ItemChange*>(RE::malloc(sizeof(RE::ItemChange)));
+				if (!entry) {
+					return false;
+				}
+				std::memset(static_cast<void*>(entry), 0, sizeof(RE::ItemChange));
+				entry->object = a_object;
+				auto* node = reinterpret_cast<ItemNode*>(a_items);
+				if (!node->item && !node->next) {
+					node->item = entry;   // an empty list: its inline first node
+					return true;
+				}
+				while (node->next) {
+					node = node->next;
+				}
+				auto* added = static_cast<ItemNode*>(RE::malloc(sizeof(ItemNode)));
+				if (!added) {
+					return false;
+				}
+				added->item = entry;
+				added->next = nullptr;
+				node->next = added;
+				return true;
+			} __except (EXCEPTION_EXECUTE_HANDLER) {
+				return false;
+			}
+		}
+
+		// once per item while pending: re-checked on the TES thread (still no entry, still held) before anything is made
+		void PostCreateEntry(std::uint32_t a_formID)
+		{
+			{
+				std::scoped_lock lock(g_entryLock);
+				if (!g_entryPending.insert(a_formID).second) {
+					return;
+				}
+			}
+			testhread::Post([a_formID] {
+				auto* items = Items();
+				auto* object = BaseObjectGuarded(a_formID);
+				if (items && object && !FindGuarded(items, a_formID) && HeldGuarded(nullptr, a_formID) > 0 && !AppendEntryGuarded(items, object)) {
+					static std::unordered_set<std::uint32_t> s_reported;   // TES thread only; retried each maintenance pass, reported once
+					if (s_reported.insert(a_formID).second) {
+						logger::warn("inventory: no inventory entry could be made for {} - its quick key waits", NameOf(a_formID));
+					}
+				}
+				std::scoped_lock lock(g_entryLock);
+				g_entryPending.erase(a_formID);
+			});
+		}
+
 		// the pointer is the game's own node: callers that change the item (keys) are on the thread that owns the list
 		RE::ItemChange* Find(std::uint32_t a_formID)
 		{
@@ -96,11 +265,11 @@ namespace inventory
 		{
 			__try {
 				RE::ItemChange* item = FindGuarded(a_items, a_formID);
-				if (!item || item->count <= 0) {
+				const int       count = HeldGuarded(item, a_formID);
+				if (count <= 0) {
 					return 0;
 				}
-				const int count = item->count;
-				if (a_worn && item->extraData) {
+				if (a_worn && item && item->extraData) {
 					for (auto* xn = reinterpret_cast<ExtraNode*>(item->extraData); xn; xn = xn->next) {
 						if (IsWorn(xn->item)) {
 							*a_worn = true;
@@ -118,17 +287,18 @@ namespace inventory
 			__try {
 				for (auto* node = reinterpret_cast<ItemNode*>(a_items); node; node = node->next) {
 					RE::ItemChange* item = node->item;
-					if (!item || !item->object || item->count <= 0) {
+					if (!item || !item->object) {
 						continue;
 					}
 					const char* n = RE::TESFullName::GetFullName(item->object);
-					if (n && std::strcmp(a_name, n) == 0) {
+					if (n && std::strcmp(a_name, n) == 0 && HeldGuarded(item, item->object->GetFormID()) > 0) {
 						return item->object->GetFormID();
 					}
 				}
 			} __except (EXCEPTION_EXECUTE_HANDLER) {
+				return 0;
 			}
-			return 0;
+			return BaseNamedGuarded(a_items, a_name);
 		}
 
 		int PositionGuarded(RE::BSSimpleList<RE::ItemChange*>* a_items, std::uint32_t a_formID)
@@ -151,8 +321,8 @@ namespace inventory
 			__try {
 				for (auto* node = reinterpret_cast<ItemNode*>(a_items); node; node = node->next) {
 					RE::ItemChange* item = node->item;
-					if (!item || !item->object || !item->extraData || item->count <= 0 ||
-						item->object->GetFormType() != RE::FormType::Ammo) continue;
+					if (!item || !item->object || !item->extraData || item->object->GetFormType() != RE::FormType::Ammo ||
+						HeldGuarded(item, item->object->GetFormID()) <= 0) continue;
 					for (auto* xn = reinterpret_cast<ExtraNode*>(item->extraData); xn; xn = xn->next) {
 						if (IsWorn(xn->item)) return item->object->GetFormID();
 					}
@@ -234,6 +404,16 @@ namespace inventory
 		return Items() != nullptr;
 	}
 
+	bool KeyPending(std::uint32_t a_formID)
+	{
+		return a_formID && !Find(a_formID) && HeldGuarded(nullptr, a_formID) > 0;
+	}
+
+	bool HasEntry(std::uint32_t a_formID)
+	{
+		return Find(a_formID) != nullptr;
+	}
+
 	bool Has(std::uint32_t a_formID)
 	{
 		auto* items = a_formID ? Items() : nullptr;
@@ -304,7 +484,7 @@ namespace inventory
 				return;
 			}
 			for (RE::ItemChange* item : *items) {
-				if (item && item->object && item->object->GetFormID() == a_id && item->count > 0 &&
+				if (item && item->object && item->object->GetFormID() == a_id && HeldGuarded(item, a_id) > 0 &&
 					item->object->GetFormType() == RE::FormType::Ammo) {
 					// already worn: nothing to do. Every open of the wheel used to equip the stack again (40 equips of the
 					// same iron arrows in one session) and the owner saw the arrows duplicated in the inventory (2026-09-30)
@@ -320,7 +500,7 @@ namespace inventory
 					}
 					// arrows are worn as the whole stack; no lock (EquipObject's last argument is the console's NoUnequip)
 					// EquipObject may rebuild inventory entries: do not dereference item after it returns.
-					const auto count = item->count;
+					const auto count = HeldGuarded(item, a_id);
 					const auto name = NameOf(a_id);
 					player->EquipObject(item->object, count, nullptr, false, false);
 					logger::info("ammo: {} x{} equipped (TES thread)", name, count);
@@ -511,9 +691,19 @@ namespace inventory
 			return false;
 		}
 		auto* item = Find(a_formID);
-		if (!item || item->count <= 0) {
-			logger::warn("inventory: {} is not carried - quick key {} left as it was", NameOf(a_formID), a_key + 1);
+		if (HeldGuarded(item, a_formID) <= 0) {   // starting gear: count 0 in its change entry, held through the base record
+			if (g_warnedNotCarried.insert(a_formID).second) {
+				logger::warn("inventory: {} is not carried - quick key {} left as it was", NameOf(a_formID), a_key + 1);
+			}
 			return false;
+		}
+		if (!item) {
+			// held only through the base record (IWP-041): give it the entry the game would make, then key it like any other item
+			PostCreateEntry(a_formID);
+			item = Find(a_formID);   // made at once unless the TES thread is paused (radial wheel open); then on a later pass
+			if (!item) {
+				return false;
+			}
 		}
 		ClearSlot(a_key);
 		// already keyed (to another slot): move that key
@@ -592,16 +782,19 @@ namespace inventory
 			testhread::Post([id, action] {
 				auto* player = RE::PlayerCharacter::GetSingleton();
 				auto* item = Find(id);
-				if (!player || !item || !item->object || item->count <= 0) return;
+				if (!player || HeldGuarded(item, id) <= 0) return;
+				// held only through the base record (IWP-041): no change entry yet, the game makes one when it equips the form
+				auto* object = item && item->object ? item->object : BaseObjectGuarded(id);
+				if (!object) return;
 				RE::ExtraDataList* keyed = nullptr;
-				if (item->extraData) {
+				if (item && item->extraData) {
 					for (RE::ExtraDataList* xl : *item->extraData) {
 						if (xl && KeyExtra(xl)) { keyed = xl; break; }
 					}
 				}
 				const bool unequip = action == KeyedAction::kUnequip || (action == KeyedAction::kToggle && StateOf(id).worn);
-				if (unequip) player->UnequipObject(item->object, 1, keyed, false, false);
-				else player->EquipObject(item->object, 1, keyed, false, false);
+				if (unequip) player->UnequipObject(object, 1, keyed, false, false);
+				else player->EquipObject(object, 1, keyed, false, false);
 				logger::info("wheels: {} {} on the TES thread ({})", NameOf(id), unequip ? "unequipped" : "equipped", Describe(StateOf(id)));
 			});
 		}

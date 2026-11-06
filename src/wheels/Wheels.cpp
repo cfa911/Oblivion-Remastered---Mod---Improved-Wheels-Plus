@@ -253,6 +253,14 @@ namespace wheels
 			AssignHighlighted(a_menu, a_slot);   // data only: never assign arrows to native Equipment hotkeys
 			return;
 		}
+		if (a_menu == menus::Menu::kInventory && a_slot >= 0) {
+			// IWP-041: the game keys an item held only through the base record (no inventory entry) in its own table only, so nothing
+			// would arrive to settle; the number keys' data path makes its entry and keys it
+			if (const auto id = rows::HighlightedItem(); id && !inventory::HasEntry(id)) {
+				AssignHighlighted(a_menu, a_slot);
+				return;
+			}
+		}
 		if (!EnsureLoaded()) {
 			return;
 		}
