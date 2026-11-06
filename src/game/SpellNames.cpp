@@ -32,14 +32,21 @@ namespace spellnames
 			const ULONGLONG now = GetTickCount64();
 			if (!g_namesFor.empty() && now - g_namesCheckedAt < 500) return !g_namesRejected;
 			g_namesCheckedAt = now;
-			const std::string who = inventory::PlayerName();
+			const std::string who = inventory::Identity();
 			if (who == g_namesFor) return !g_namesRejected;
 			g_namesFor = who;
 			g_displayNames.clear();
 			g_namesRejected = false;
 			g_namesDirty = false;
 			const auto    path = NamesFile(who);
+			std::string   header = who;
 			std::ifstream f(path);
+			if (!f && wheelstorage::IsCharacterId(who) && !std::filesystem::exists(path)) {
+				// IWP-039: first load under the CharacterId - read the old seed-named file (kept as is); the next learned name writes the new one
+				header = inventory::PlayerName();
+				f = std::ifstream(NamesFile(header));
+				if (f) g_namesDirty = true;
+			}
 			if (!f) {
 				if (std::filesystem::exists(path)) {
 					g_namesRejected = true;
@@ -47,7 +54,7 @@ namespace spellnames
 				}
 				return !g_namesRejected;   // no file yet: nothing learned for this character
 			}
-			if (!wheelstorage::ReadHeader(f, who, wheelstorage::kSpellNamesSignature)) {
+			if (!wheelstorage::ReadHeader(f, header, wheelstorage::kSpellNamesSignature)) {
 				g_namesRejected = true;
 				logger::error("rows: ignoring unrecognized format or character identity in {}; file left untouched", path.string());
 				return false;

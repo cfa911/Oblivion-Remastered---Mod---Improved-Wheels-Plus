@@ -39,6 +39,7 @@ namespace inventory
 	bool ClearAllNativeKeys();                        // the game's own clear of every native hotkey, spells too (TES thread only; false = not done)
 	bool SetKey(std::uint32_t a_formID, int a_key);   // puts quick key N on that item (and off any other item)
 
+	std::string Identity();                           // what the wheel files are keyed on: the save's CharacterId, else PlayerName() (IWP-039)
 	std::string PlayerName();                         // the character the wheels are saved under
 
 	// what can be seen of an item from outside: how many are carried and whether one is worn (a use of its quick key
