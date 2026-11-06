@@ -3,6 +3,21 @@
 Written as changes happen, not reconstructed afterwards (rule 61). Started 2026-09-29; the history before this file is
 in `git log`. A version number is issued by the version gate only once a build is seen working in game (rule 48).
 
+## Unreleased
+
+### Fixed
+- IWP-039: wheels no longer come up empty after a restart when the game reports a different character seed. Wheel files are now
+  keyed on the save's CharacterId (`<CharacterId>.iwp`, `.spells`), with the old name-and-seed file as fallback.
+- A missing wheel file no longer wipes the save's native quick keys or writes an empty file when another file of the same
+  character name exists.
+
+### Changed
+- Existing `<name> _<seed>.iwp` files are adopted once into the CharacterId file and kept on disk: the exact file first, else
+  the most recent non-empty one whose items the character owns (or whose active entries match the save's quick keys); each old
+  file goes to one character only (`adopted.txt`). Otherwise the wheels stay off with a warning naming the manual fix (rename
+  the old file to `<CharacterId>.iwp`).
+- Wheels are ready about 1 s after a load instead of 3 s when the CharacterId is known.
+
 ## 2.5.0 - 2026-11-02 - Improved Wheels Plus
 
 ### Added

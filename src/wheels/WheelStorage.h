@@ -29,11 +29,43 @@ namespace wheelstorage
 		return safe;
 	}
 
+	// The character part of an identity "<name> #<seed>". The seed of one character changed between launches on a player's
+	// machine (IWP-039, KB bugs/improved-wheels-plus/IWP-039), so files that differ only in it may belong to the same character.
+	inline std::string_view IdentityBase(std::string_view a_name)
+	{
+		const auto hash = a_name.rfind(" #");
+		if (hash == std::string_view::npos || a_name.size() - hash != 10) return a_name;
+		for (const char c : a_name.substr(hash + 2)) {
+			if (!std::isxdigit(static_cast<unsigned char>(c))) return a_name;
+		}
+		return a_name.substr(0, hash);
+	}
+
+	// "XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX": the save's CharacterId as inventory::Identity() writes it
+	inline bool IsCharacterId(std::string_view a_name)
+	{
+		if (a_name.size() != 35) return false;
+		for (std::size_t i = 0; i < a_name.size(); ++i) {
+			const bool dash = i == 8 || i == 17 || i == 26;
+			if (dash ? a_name[i] != '-' : !std::isxdigit(static_cast<unsigned char>(a_name[i]))) return false;
+		}
+		return true;
+	}
+
 	inline bool ReadHeader(std::istream& a_in, std::string_view a_character, std::string_view a_signature = kSignature)
 	{
 		std::string signature, character;
 		return std::getline(a_in, signature) && std::getline(a_in, character) &&
 			signature == a_signature && character == std::string(kCharacterPrefix) + std::string(a_character);
+	}
+
+	// the identity line of one of our files, whatever character it names
+	inline bool ReadIdentity(std::istream& a_in, std::string& a_character)
+	{
+		std::string signature, line;
+		if (!std::getline(a_in, signature) || !std::getline(a_in, line) || signature != kSignature || !line.starts_with(kCharacterPrefix)) return false;
+		a_character = line.substr(kCharacterPrefix.size());
+		return true;
 	}
 
 	inline void WriteHeader(std::ostream& a_out, std::string_view a_character, std::string_view a_signature = kSignature)

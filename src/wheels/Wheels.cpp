@@ -30,6 +30,7 @@ namespace wheels::detail
 			g_storageRetryAt = 0;
 			g_emptySetup.Reset();
 			g_initializeEmpty = false;
+			g_identityHeld = false;
 			g_sanitized = false;
 		}
 		return now.context.ready;

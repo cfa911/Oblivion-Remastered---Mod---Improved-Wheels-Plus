@@ -40,6 +40,7 @@ namespace wheels::detail
 	inline ULONGLONG g_storageRetryAt = 0;
 	inline bool g_storageRejected = false;   // never load or overwrite a file without our format and character identity
 	inline emptysetup::Gate g_emptySetup;
+	inline bool g_identityHeld = false;   // no file for this identity, but one for the same name under another seed (IWP-039): wheels off, nothing cleared or written
 	inline bool g_initializeEmpty = false;   // no stored wheel setup: clear native item keys once inventory is ready
 	inline std::unordered_set<std::uint32_t> g_carriedSeen;
 	inline std::uint64_t g_goneCheckAt = 0;
