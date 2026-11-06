@@ -22,6 +22,12 @@ in `git log`. A version number is issued by the version gate only once a build i
   way that could leave the game hanging (finding 4).
 - Keeping the game's own keyboard quick keys switched off no longer searches the whole object table every 5 seconds; the full
   search runs only when you return to gameplay (finding 5).
+- Wheel and spell-name files saved by a text editor with a BOM or Windows line endings are read instead of refused
+  (finding 11).
+- A self-made spell keeps its own name on the wheel when abilities or diseases come before it in the spell list (finding 7).
+- Looking up a spell by name no longer risks a crash while the game changes the spell list (finding 6).
+- A repair hammer used from the wheel is cancelled when you load another save before the Inventory opens (finding 8).
+- The wheel's centre name looks up each item name once instead of on every pointer move (finding 16).
 
 ### Changed
 - Existing `<name> _<seed>.iwp` files are adopted once into the CharacterId file and kept on disk: the exact file first, else

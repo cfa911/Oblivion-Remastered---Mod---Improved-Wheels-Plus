@@ -52,10 +52,26 @@ namespace wheelstorage
 		return true;
 	}
 
+	// One line of a file a person may have edited: a trailing CR (CRLF line endings) is dropped. The mod writes LF only.
+	inline bool GetLine(std::istream& a_in, std::string& a_line)
+	{
+		if (!std::getline(a_in, a_line)) return false;
+		if (!a_line.empty() && a_line.back() == '\r') a_line.pop_back();
+		return true;
+	}
+
+	// The first line, without the UTF-8 BOM an editor may put in front of it
+	inline bool GetFirstLine(std::istream& a_in, std::string& a_line)
+	{
+		if (!GetLine(a_in, a_line)) return false;
+		if (a_line.starts_with("\xEF\xBB\xBF")) a_line.erase(0, 3);
+		return true;
+	}
+
 	inline bool ReadHeader(std::istream& a_in, std::string_view a_character, std::string_view a_signature = kSignature)
 	{
 		std::string signature, character;
-		return std::getline(a_in, signature) && std::getline(a_in, character) &&
+		return GetFirstLine(a_in, signature) && GetLine(a_in, character) &&
 			signature == a_signature && character == std::string(kCharacterPrefix) + std::string(a_character);
 	}
 
@@ -63,7 +79,7 @@ namespace wheelstorage
 	inline bool ReadIdentity(std::istream& a_in, std::string& a_character)
 	{
 		std::string signature, line;
-		if (!std::getline(a_in, signature) || !std::getline(a_in, line) || signature != kSignature || !line.starts_with(kCharacterPrefix)) return false;
+		if (!GetFirstLine(a_in, signature) || !GetLine(a_in, line) || signature != kSignature || !line.starts_with(kCharacterPrefix)) return false;
 		a_character = line.substr(kCharacterPrefix.size());
 		return true;
 	}
@@ -121,8 +137,8 @@ namespace wheelstorage
 		Model parsed{};
 		std::array<std::array<bool, 8>, 4> seen{};
 		std::string line;
-		while (std::getline(in, line)) {
-			if (line.empty() || line[0] == '#') continue;
+		while (GetLine(in, line)) {
+			if (line.find_first_not_of(" \t") == std::string::npos || line[0] == '#') continue;
 			std::istringstream row(line);
 			std::string wheel, number, active, id;
 			if (!(row >> wheel >> number >> active) || !active.starts_with("active=")) return false;

@@ -87,6 +87,9 @@ namespace wheelname
 		std::string Resolve(const std::string& a_text)
 		{
 			if (!a_text.starts_with("LOC_")) return a_text;
+			// called every 100 ms and on pointer moves while a wheel is open: a key's text is the same for the session, looked up once
+			static std::unordered_map<std::string, std::string> s_resolved;
+			if (const auto it = s_resolved.find(a_text); it != s_resolved.end()) return it->second;
 			static auto* lib = ui::Class(L"/Script/Engine.KismetTextLibrary");
 			ui::Call t(lib ? lib->GetDefaultObject(false) : nullptr, L"TextFromStringTable");
 			void* id = t.At("TableId");
@@ -101,7 +104,9 @@ namespace wheelname
 			std::string out = reflect::Text(*got);
 			got->~FText();
 			k->~FString();
-			return out.empty() ? a_text : out;
+			if (out.empty()) return a_text;   // not cached: the table may not be loaded yet
+			s_resolved.emplace(a_text, out);
+			return out;
 		}
 
 		// The name of what the pointed slot holds, in the wheel's own centre text (the game left "Shortcut" there: it names

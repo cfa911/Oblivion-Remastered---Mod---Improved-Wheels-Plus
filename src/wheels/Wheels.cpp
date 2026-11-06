@@ -19,6 +19,7 @@ namespace wheels::detail
 			observed = now;
 			g_pending = {};
 			g_use = {};
+			g_hi = {};   // a hammer use in flight belongs to the save it started in
 			g_holdKey = -1;
 			g_holdItem = 0;
 			g_leaving.clear();
