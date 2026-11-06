@@ -3,7 +3,7 @@
 Written as changes happen, not reconstructed afterwards (rule 61). Started 2026-09-29; the history before this file is
 in `git log`. A version number is issued by the version gate only once a build is seen working in game (rule 48).
 
-## Unreleased
+## 2.6.0 - 2026-11-06 - Improved Wheels Plus
 
 ### Fixed
 - IWP-041: starting gear from the character's own record (the prison clothes) can be assigned by click, controller and number key

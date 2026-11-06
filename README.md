@@ -2,7 +2,7 @@
 
 Three wheels for gear, spells, scrolls and arrows in **Oblivion Remastered**, with keyboard, mouse and controller support.
 
-**Current release: 2.5.0.** [Download on Nexus Mods](https://www.nexusmods.com/oblivionremastered/mods/5713) or [GitHub Releases](https://github.com/cfa911/Oblivion-Remastered---Mod---Improved-Wheels-Plus/releases/latest).
+**Current release: 2.6.0.** [Download on Nexus Mods](https://www.nexusmods.com/oblivionremastered/mods/5713) or [GitHub Releases](https://github.com/cfa911/Oblivion-Remastered---Mod---Improved-Wheels-Plus/releases/latest).
 
 Read the [User Documentation](USER_DOCUMENTATION.md) for detailed controls, settings, assignment backups and troubleshooting, or the [changelog](CHANGELOG.md) for version history.
 
@@ -15,6 +15,14 @@ Read the [User Documentation](USER_DOCUMENTATION.md) for detailed controls, sett
 - **Per-character assignments:** wheel setups survive restarts. Entries unavailable in the loaded save are hidden rather than erased.
 - **Optional slow motion:** gameplay slows while a wheel is open and returns to normal when it closes. Sound is unchanged.
 - **Wheel themes:** blue Magic with gold details and red Inventory with silver details, including assignment panels. Each theme can be disabled separately.
+
+## New in 2.6.0
+
+- Wheels no longer come up empty after a restart when the game reports a different character seed: wheel files are now named after the save's CharacterId (`<CharacterId>.iwp` and `.spells` in `OBSE\Plugins\ImprovedWheelsPlus\Assignments`).
+- Old `<character name> _<seed>.iwp` files are kept and taken over once on the first load of each character, with the matching `.spells`; `adopted.txt` records which old file went to which character. If nothing matches safely, the wheels stay off and the log names the file to rename. Details: [USER_DOCUMENTATION.md](USER_DOCUMENTATION.md#assignments-and-backups).
+- Wheels are ready about 1 s after a load instead of 3 s.
+- Starting gear held through the character's own record (the prison clothes) can be assigned on the first try.
+- Stability fixes from a code review: freed item/spell texts no longer risk a crash, safer spell lookups, no periodic object-table search, BOM/CRLF wheel files are read, self-made spells keep their name, and the mouse-wheel scroll no longer assigns the previously hovered item.
 
 ## New in 2.5.0
 

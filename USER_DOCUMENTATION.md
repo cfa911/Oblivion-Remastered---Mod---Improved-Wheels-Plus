@@ -41,7 +41,7 @@ For Mod Organizer 2, install at the game root through Root Builder or an equival
 
 **The first time each character uses the mod, the game's original item and spell hotkeys are cleared and the mod's wheels start empty.** No manual cleanup is required. Rebuild your loadout using favorites, the assign panel or number keys.
 
-Existing Improved Wheels Plus **2.x** assignments are retained when updating to 2.4.2. Legacy wheel files and other wheel mods' assignments are not imported. Existing INI files keep their configured bindings, so your keys may differ from the defaults below.
+Existing Improved Wheels Plus **2.x** assignments are retained when updating. From 2.6.0 the wheel files are named after the save's character id; your old files are taken over automatically on the first load (see [Assignments and backups](#assignments-and-backups)). Legacy wheel files and other wheel mods' assignments are not imported. Existing INI files keep their configured bindings, so your keys may differ from the defaults below.
 
 ## The three wheels
 
@@ -166,7 +166,13 @@ Each character has separate files under:
 OblivionRemastered\Binaries\Win64\OBSE\Plugins\ImprovedWheelsPlus\Assignments
 ```
 
-The `.iwp` file stores wheel assignments; the matching `.spells` file stores custom spell names. Back up both together with the game closed. Keep your character's matching game saves too: when loading a save, entries for items or spells it does not own are removed from the wheel.
+The `.iwp` file stores wheel assignments; the matching `.spells` file stores custom spell names. Back up both together with the game closed, together with `adopted.txt` when it exists.
+
+**File names (from 2.6.0).** The files are named after the character id the game stores in the save, for example `4A1A9262-487462B9-F49E7884-5B878754.iwp` and `.spells`. That id stays the same for a character across restarts and machines, so a character no longer loses its wheels when the game reports a different character seed. When no id is available, the older `<character name> _<seed>.iwp` name is used.
+
+**Upgrading from an earlier version.** Your old `<character name> _<seed>.iwp` files are not deleted. On the first load of each character, the mod copies one old file into the new `<CharacterId>.iwp` (and the matching `.spells` into `<CharacterId>.spells`, never overwriting an existing one). It takes the exact name-and-seed file first; otherwise the most recent non-empty file of that character name whose items the character owns, or whose entries match the save's quick keys. Each old file is given to one character only; `adopted.txt` in the same folder records which (one line per old file: the file name and the CharacterId).
+
+**If the wheels stay off after a load.** When no old file can be matched safely, the wheels stay off rather than starting empty or overwriting anything, and `ImprovedWheelMenu.log` names the file to create. Close the game and rename the right old file to that name (`<CharacterId>.iwp`); the mod accepts it on the next load. Keep your character's matching game saves too: when loading a save, entries for items or spells it does not own are removed from the wheel.
 
 ## Compatibility
 

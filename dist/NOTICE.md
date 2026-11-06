@@ -3,7 +3,7 @@
 Copyright (C) 2026 ApocryphaRealm
 
 This is a modified version of Improved Wheel Menu (https://github.com/ApocryphaRealm/ImprovedWheelMenuOR, 1.0.1). The changes are
-marked in the source history and listed in `CHANGELOG.md`(versions 1.1.0 to 2.5.0, "Improved Wheel - Keyboard and Better Controller Support"); the modifications are
+marked in the source history and listed in `CHANGELOG.md`(versions 1.1.0 to 2.6.0, "Improved Wheel - Keyboard and Better Controller Support"); the modifications are
 Copyright (C) 2026 cfa911 and released under the same licence.
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
