@@ -14,6 +14,8 @@ in `git log`. A version number is issued by the version gate only once a build i
   keyed on the save's CharacterId (`<CharacterId>.iwp`, `.spells`), with the old name-and-seed file as fallback.
 - A missing wheel file no longer wipes the save's native quick keys or writes an empty file when another file of the same
   character name exists.
+- Item and spell names are no longer read from a text the game has already freed or never filled; such a text now reads
+  as empty instead of risking a "Pure virtual function being called" crash (code review 2026-11-06, finding 1).
 
 ### Changed
 - Existing `<name> _<seed>.iwp` files are adopted once into the CharacterId file and kept on disk: the exact file first, else
