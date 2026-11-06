@@ -20,7 +20,7 @@ namespace reflect
 	bool SelfCheck();   // true once the Offset_Internal layout is proven; everything reflected refuses to run until then
 	bool Ok();
 
-	bool        TextSet(const UE::FText& a_text);   // false for a zeroed FText (a list row never given an item)
+	bool        TextSet(const UE::FText& a_text);   // false for a zeroed FText (a list row never given an item) or a text object whose vtable is outside the game executable
 	std::string Text(const UE::FText& a_text);   // an FText's display string (UTF-8); empty for a zeroed one
 
 	// the string-table key an FText was made from ("LOC_FN_..." for a form's name), through the engine's own

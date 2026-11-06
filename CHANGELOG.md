@@ -14,6 +14,20 @@ in `git log`. A version number is issued by the version gate only once a build i
   keyed on the save's CharacterId (`<CharacterId>.iwp`, `.spells`), with the old name-and-seed file as fallback.
 - A missing wheel file no longer wipes the save's native quick keys or writes an empty file when another file of the same
   character name exists.
+- Item and spell names are no longer read from a text the game has already freed or never filled; such a text now reads
+  as empty instead of risking a "Pure virtual function being called" crash (code review 2026-11-06, finding 1).
+- After scrolling a list with the mouse wheel, assigning or favouriting no longer acts on the item the pointer was over
+  before the scroll (code review finding 3).
+- The safety guard around game UI calls now only catches invalid memory reads; other errors are no longer swallowed in a
+  way that could leave the game hanging (finding 4).
+- Keeping the game's own keyboard quick keys switched off no longer searches the whole object table every 5 seconds; the full
+  search runs only when you return to gameplay (finding 5).
+- Wheel and spell-name files saved by a text editor with a BOM or Windows line endings are read instead of refused
+  (finding 11).
+- A self-made spell keeps its own name on the wheel when abilities or diseases come before it in the spell list (finding 7).
+- Looking up a spell by name no longer risks a crash while the game changes the spell list (finding 6).
+- A repair hammer used from the wheel is cancelled when you load another save before the Inventory opens (finding 8).
+- The wheel's centre name looks up each item name once instead of on every pointer move (finding 16).
 
 ### Changed
 - Existing `<name> _<seed>.iwp` files are adopted once into the CharacterId file and kept on disk: the exact file first, else

@@ -124,8 +124,13 @@ namespace controls
 		}
 
 		// IA_Game_QuickKeys_Keyboard_1..8 taken off the keys in the context (INI [Keyboard] bReplaceQuickKeys): the plugin's slot keys
-		// (Keyboard.cpp) replace them, so a digit no longer opens the radial or assigns to the game's own key storage
-		int UnbindNativeQuickKeys()
+		// (Keyboard.cpp) replace them, so a digit no longer opens the radial or assigns to the game's own key storage.
+		// The whole object table is walked only for a_fullScan (back in gameplay: the start, after a menu or a load); the
+		// periodic check looks only at the mapping contexts found then (no periodic object-table scans).
+		std::vector<reflect::Handle> g_quickContexts;   // mapping contexts that held keyboard quick-key actions
+		bool                         g_quickScanned = false;   // a full scan has run
+
+		int UnbindNativeQuickKeys(bool a_fullScan)
 		{
 			static thread_local FunctionClassCache<UE::UObject*, std::pair<int, std::uint64_t>, bool> quickActions;
 			// the keyboard quick keys are not in IMC_Game_Default (nothing of that name was found there): every mapping context the
@@ -135,8 +140,16 @@ namespace controls
 			if (!imcClass || m.size <= 0 || m.action < 0) return 0;
 			const auto off = reflect::Offset(reinterpret_cast<UE::UStruct*>(imcClass), "Mappings");
 			if (off < 0) return 0;
+			std::vector<UE::UObject*> contexts;
+			if (a_fullScan) {
+				contexts = reflect::Instances(imcClass);
+			} else {
+				for (const auto& h : g_quickContexts) {
+					if (auto* c = reflect::Get(h)) contexts.push_back(c);
+				}
+			}
 			int total = 0;
-			for (auto* ctx : reflect::Instances(imcClass)) {
+			for (auto* ctx : contexts) {
 				if (!ctx) continue;
 				const auto* arr = reinterpret_cast<const RawArray*>(reinterpret_cast<const std::uint8_t*>(ctx) + off);
 				if (!arr->data || arr->num <= 0) continue;
@@ -161,6 +174,9 @@ namespace controls
 					++total;
 				}
 				if (!actions.empty()) {
+					if (std::none_of(g_quickContexts.begin(), g_quickContexts.end(), [&](const reflect::Handle& h) { return h.ptr == ctx; })) {
+						g_quickContexts.push_back(reflect::Hold(ctx));   // live: handed back by the scan this frame
+					}
 					static int s_named = 0;
 					if (s_named++ < 4) logger::info("controls: {} had {} keyboard quick key action(s) - taken off their keys", pe::NameOf(ctx), actions.size());
 				}
@@ -339,8 +355,10 @@ namespace controls
 		if (!inMenu && (backInGameplay || g_ticks % 60 == 0)) {
 			Follow();
 		}
-		if (settings::Get().keyboard.enabled && settings::Get().keyboard.replaceQuickKeys && (g_ticks % 25 == 0 || backInGameplay)) {
-			if (const int n = UnbindNativeQuickKeys(); n > 0) {
+		const bool fullScan = backInGameplay || !g_quickScanned;
+		if (settings::Get().keyboard.enabled && settings::Get().keyboard.replaceQuickKeys && (g_ticks % 25 == 0 || fullScan)) {
+			g_quickScanned = true;
+			if (const int n = UnbindNativeQuickKeys(fullScan); n > 0) {
 				static int s_logged = 0;
 				if (s_logged++ < 3) logger::info("controls: the game's keyboard quick keys ({} actions) taken off the keys - the plugin's slot keys replace them", n);
 				RebuildMappings();

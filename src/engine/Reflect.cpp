@@ -148,6 +148,44 @@ namespace reflect
 			auto* c = static_cast<EventCtx*>(a_ctx);
 			c->obj->ProcessEvent(c->fn, c->params);
 		}
+
+		// A text object's vtable must lie inside the game executable: a freed or garbage ITextData otherwise reaches a pure
+		// virtual slot, which ends the process ("Pure virtual function being called") and no __except can catch (RMI-022:
+		// a view-model "FText" whose first qword was 0x8000000000).
+		struct ImageRange
+		{
+			std::uintptr_t begin = 0;
+			std::uintptr_t end = 0;
+		};
+
+		ImageRange ExeImage()
+		{
+			static const ImageRange range = [] {
+				ImageRange r;
+				const auto base = reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr));
+				if (!base) {
+					return r;
+				}
+				const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
+				const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS64*>(base + dos->e_lfanew);
+				r.begin = base;
+				r.end = base + nt->OptionalHeader.SizeOfImage;
+				return r;
+			}();
+			return range;
+		}
+
+		struct VtableCtx
+		{
+			const void*    object;
+			std::uintptr_t vtable;
+		};
+
+		void VtableRun(void* a_ctx)
+		{
+			auto* c = static_cast<VtableCtx*>(a_ctx);
+			c->vtable = *static_cast<const std::uintptr_t*>(c->object);
+		}
 	}
 
 	std::string Text(const UE::FText& a_text)
@@ -169,7 +207,16 @@ namespace reflect
 		// list entry built but not yet given an item) holds zeroes here, and the engine reads through them - the crash
 		// of 2026-09-29 02:44 (StringTableIdAndKeyFromText on such a row, as the inventory's panel opened).
 		const auto* raw = reinterpret_cast<void* const*>(&a_text);
-		return raw[0] != nullptr && raw[1] != nullptr;
+		if (raw[0] == nullptr || raw[1] == nullptr) {
+			return false;
+		}
+		// a freed or garbage text object: refused before the engine calls through its vtable (see ExeImage)
+		VtableCtx ctx{ raw[0], 0 };
+		if (!Guarded(&VtableRun, &ctx)) {
+			return false;
+		}
+		const auto image = ExeImage();
+		return ctx.vtable >= image.begin && ctx.vtable < image.end;
 	}
 
 	std::string TextKey(const UE::FText& a_text)

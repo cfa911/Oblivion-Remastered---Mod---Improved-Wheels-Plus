@@ -33,6 +33,7 @@ namespace rows
 			std::int32_t weight = -1, count = -1;   // Weight (float), Count (int32): what tells apart items that share a typed name
 			reflect::Handle highlighted;   // kept across frames: resolved through its slot before every use
 			UE::UFunction* fnSelection = nullptr;   // this row class's BP_OnItemSelectionChanged
+			UE::UFunction* fnReleased = nullptr;   // this row class's BP_OnEntryReleased (the row is recycled for another item)
 			std::unordered_map<UE::UObject*, std::int32_t> seen;   // row -> its object-array slot
 		};
 		Kind g_inventory, g_magic;
@@ -228,11 +229,21 @@ namespace rows
 			++g_rowGeneration;
 			a_kind.seen.insert_or_assign(a_obj, a_obj->internalIndex);   // live: the engine is calling it now
 			g_dirty = true;
-			if (!a_kind.fnSelection && pe::FunctionName(a_fn) == "BP_OnItemSelectionChanged") {
-				a_kind.fnSelection = a_fn;
+			if (!a_kind.fnSelection || !a_kind.fnReleased) {
+				const auto& name = pe::FunctionName(a_fn);
+				if (!a_kind.fnSelection && name == "BP_OnItemSelectionChanged") a_kind.fnSelection = a_fn;
+				if (!a_kind.fnReleased && name == "BP_OnEntryReleased") a_kind.fnReleased = a_fn;
 			}
-			if (a_fn == a_kind.fnSelection && a_params && *static_cast<const bool*>(a_params)) {
-				a_kind.highlighted = reflect::Hold(a_obj);
+			// rows are recycled on scroll (released, then given another item): a highlight kept on a deselected or released row
+			// would point at whatever item the row shows next, so it is dropped (the next selection sets it again)
+			if (a_fn == a_kind.fnSelection && a_params) {
+				if (*static_cast<const bool*>(a_params)) {
+					a_kind.highlighted = reflect::Hold(a_obj);
+				} else if (a_kind.highlighted.ptr == a_obj) {
+					a_kind.highlighted = {};
+				}
+			} else if (a_fn == a_kind.fnReleased && a_kind.highlighted.ptr == a_obj) {
+				a_kind.highlighted = {};
 			}
 		}
 
@@ -304,32 +315,58 @@ namespace rows
 		// is inline ({ item, next }); an empty list is a null item and a null next.
 		using SpellNode = RE::BSSimpleList<RE::SpellItem*>::Node;
 
-		// where a spell sits in the player's list (-1 = not in it); a_wanted is a pointer to compare, a_formID (when no pointer) is read
-		int SpellPositionGuarded(RE::TESSpellList* a_list, const RE::SpellItem* a_wanted, std::uint32_t a_formID)
+		// The Magic menu's rebuild skips spell types 1 (disease) and 4 (ability) (KB docs/inventory/magic-scroll-filter-2026-10-30.md,
+		// RVA 0x67767E1): a row's InventoryIndex counts only the spells the menu lists. Called inside the guarded walks below.
+		bool InMagicMenuList(const RE::SpellItem* a_spell)
 		{
-			__try {
-				int i = 0;
-				for (auto* node = reinterpret_cast<SpellNode*>(&a_list->spells); node; node = node->next, ++i) {
-					RE::SpellItem* spell = node->item;
-					if (a_wanted ? spell == a_wanted : spell && spell->GetFormID() == a_formID) {
-						return i;
-					}
-				}
-			} __except (EXCEPTION_EXECUTE_HANDLER) {
-			}
-			return -1;
+			const auto type = a_spell->data.spellType;
+			return type != RE::MagicSystem::SpellType::kDisease && type != RE::MagicSystem::SpellType::kAbility;
 		}
 
-		std::uint32_t SpellAtGuarded(RE::TESSpellList* a_list, int a_pos)
+		// where a spell sits in the player's list (-1 = not in it); a_wanted is a pointer to compare, a_formID (when no pointer) is read.
+		// a_menuOrder: counted as the Magic menu lists them (InventoryIndex - 1); otherwise every entry counts (membership).
+		int SpellPositionGuarded(RE::TESSpellList* a_list, const RE::SpellItem* a_wanted, std::uint32_t a_formID, bool a_menuOrder = false)
 		{
 			__try {
 				int i = 0;
 				for (auto* node = reinterpret_cast<SpellNode*>(&a_list->spells); node; node = node->next) {
+					RE::SpellItem* spell = node->item;
+					if (a_menuOrder && (!spell || !InMagicMenuList(spell))) continue;
+					if (a_wanted ? spell == a_wanted : spell && spell->GetFormID() == a_formID) {
+						return i;
+					}
+					++i;
+				}
+			} __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+			}
+			return -1;
+		}
+
+		std::uint32_t SpellAtGuarded(RE::TESSpellList* a_list, int a_pos, bool a_menuOrder = false)
+		{
+			__try {
+				int i = 0;
+				for (auto* node = reinterpret_cast<SpellNode*>(&a_list->spells); node; node = node->next) {
+					if (a_menuOrder && (!node->item || !InMagicMenuList(node->item))) continue;
 					if (i++ == a_pos) {
 						return node->item ? node->item->GetFormID() : 0u;
 					}
 				}
-			} __except (EXCEPTION_EXECUTE_HANDLER) {
+			} __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+			}
+			return 0;
+		}
+
+		// the player's spell with this full name (0 = none); fault-guarded like the walks above (the TES thread may change the list)
+		std::uint32_t SpellByNameGuarded(RE::TESSpellList* a_list, const char* a_name)
+		{
+			__try {
+				for (auto* node = reinterpret_cast<SpellNode*>(&a_list->spells); node; node = node->next) {
+					RE::SpellItem* spell = node->item;
+					const char* n = spell ? RE::TESFullName::GetFullName(spell) : nullptr;
+					if (n && std::strcmp(n, a_name) == 0) return spell->GetFormID();
+				}
+			} __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
 			}
 			return 0;
 		}
@@ -346,16 +383,16 @@ namespace rows
 			return n;
 		}
 
-		// where a spell sits in the player's list (-1 = not in it)
+		// where a spell sits in the Magic menu's order of the player's list (-1 = not in it): InventoryIndex - 1
 		int ListPosition(std::uint32_t a_formID)
 		{
 			auto* list = PlayerSpells();
-			return list && a_formID ? SpellPositionGuarded(list, nullptr, a_formID) : -1;
+			return list && a_formID ? SpellPositionGuarded(list, nullptr, a_formID, true) : -1;
 		}
 		std::uint32_t SpellAtPosition(int a_pos)
 		{
 			auto* list = PlayerSpells();
-			return list && a_pos >= 0 ? SpellAtGuarded(list, a_pos) : 0u;
+			return list && a_pos >= 0 ? SpellAtGuarded(list, a_pos, true) : 0u;
 		}
 
 		// A magic row's InventoryIndex is its spell's place in the player's list, counted from 1: proven live on the rows whose spell the
@@ -772,14 +809,9 @@ namespace rows
 		if (!list) {
 			return 0;
 		}
-		for (RE::SpellItem* spell : list->spells) {
-			const char* n = spell ? RE::TESFullName::GetFullName(spell) : nullptr;
-			if (n && a_name == n) {
-				g_spellsByName[a_name] = spell->GetFormID();
-				return spell->GetFormID();
-			}
-		}
-		return 0;
+		const auto id = SpellByNameGuarded(list, a_name.c_str());
+		if (id) g_spellsByName[a_name] = id;
+		return id;
 	}
 
 	std::string DisplayName(std::uint32_t a_formID)

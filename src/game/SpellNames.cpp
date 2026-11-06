@@ -60,7 +60,7 @@ namespace spellnames
 				return false;
 			}
 			std::string line;
-			while (std::getline(f, line)) {
+			while (wheelstorage::GetLine(f, line)) {
 				const auto tab = line.find('\t');
 				if (tab == std::string::npos || tab < 3) continue;
 				try {
