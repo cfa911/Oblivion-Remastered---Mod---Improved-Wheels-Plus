@@ -23,7 +23,7 @@ def function(name):
 
 
 # Helpers added by the IWP-039 seed-change fix; absent from older sources (the checks below then fail, not the build).
-OPTIONAL = tuple(n for n in ("OtherIdentityFile", "MatchesNativeKeys", "OwnedEntries", "AdoptedIndex", "AdoptedElsewhere", "MarkAdopted", "AdoptLegacy")
+OPTIONAL = tuple(n for n in ("OtherIdentityFile", "MatchesNativeKeys", "OwnedEntries", "AdoptedIndex", "AdoptedElsewhere", "MarkAdopted", "AdoptSpellNames", "AdoptLegacy")
                  if re.search(r"(?:bool|int|void|std::filesystem::path) " + n + r"\(", source))
 
 program = r'''
@@ -83,6 +83,7 @@ bool Installed() { return true; }
 template<class F> void Post(F f) { f(); }
 }
 namespace quickkeys { void RequestRedraw() {} }
+namespace spellnames { int resets = 0; void Reset() { ++resets; } }
 namespace rows { int PlayerSpellCount() { return 1; } bool PlayerHasMagicEntry(std::uint32_t id) { return inventory::owned.count(id) > 0; } }
 namespace atomicfile {
 bool fail = false;
@@ -320,6 +321,32 @@ int main(int argc, char** argv) {
     reset(root); writeModel(inventory::name, 0x5556);
     EnsureLoadedNow(); clockNow += 1001;
     check(!EnsureLoadedNow() && g_loadedFor.empty(), "a seed-name identity still settles for three seconds");
+
+    // The custom-spell names file goes with the adopted wheel file (same old identity), once; the old one stays.
+    auto spellsFor = [](const std::string& who) { return FileFor(who).parent_path() / (wheelstorage::SafeName(who) + ".spells"); };
+    auto writeSpells = [&](const std::string& who, const std::string& line) {
+        std::ofstream out(spellsFor(who)); wheelstorage::WriteHeader(out, who, wheelstorage::kSpellNamesSignature); out << line << "\n";
+    };
+    auto spellsText = [&](const std::string& who) { std::ifstream in(spellsFor(who)); std::ostringstream all; all << in.rdbuf(); return all.str(); };
+    reset(root); writeModel("Character #22222222", 0x7777); writeSpells("Character #22222222", "FF001234\tMy Fireball");
+    inventory::characterId = G; inventory::owned = { 0x7777, 0x7778, 0x7779 };
+    settled();
+    {
+        std::ifstream in(spellsFor(G));
+        check(present(0x7777) && wheelstorage::ReadHeader(in, G, wheelstorage::kSpellNamesSignature) &&
+              spellsText(G).find("FF001234\tMy Fireball") != std::string::npos && std::filesystem::exists(spellsFor("Character #22222222")),
+              "the adopted file's custom-spell names are carried to the CharacterId");
+    }
+    reset(root); writeModel("Character #22222222", 0x7777); writeSpells("Character #22222222", "FF001234\tOld Name");
+    writeSpells(G, "FF009999\tKept"); inventory::characterId = G; inventory::owned = { 0x7777, 0x7778, 0x7779 };
+    settled();
+    check(present(0x7777) && spellsText(G).find("Kept") != std::string::npos && spellsText(G).find("Old Name") == std::string::npos,
+          "an existing CharacterId names file is never overwritten");
+    reset(root); writeModel("Character #22222222", 0x7777); writeSpells("Character #22222222", "FF001234\tRenamed Case");
+    std::filesystem::rename(FileFor("Character #22222222"), FileFor(G)); inventory::characterId = G;
+    settled();
+    check(present(0x7777) && spellsText(G).find("Renamed Case") != std::string::npos,
+          "a hand-renamed wheel file brings its custom-spell names too");
 
     std::filesystem::remove_all(root);
     return failures ? 1 : 0;

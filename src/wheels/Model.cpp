@@ -6,6 +6,7 @@
 #include "core/Settings.h"
 #include "engine/TesThread.h"
 #include "game/Rows.h"
+#include "game/SpellNames.h"
 
 #include <fstream>
 #include <sstream>
@@ -123,6 +124,27 @@ namespace wheels::detail
 		if (!atomicfile::Write(AdoptedIndex(), data)) logger::error("wheels: could not record the adoption of {} in adopted.txt", a_file);
 	}
 
+	// The custom-spell names of an adopted wheel file go with it: "<old identity>.spells" is copied once to "<CharacterId>.spells"
+	// with its identity line rewritten. The old file stays; an existing CharacterId names file is never overwritten.
+	void AdoptSpellNames(const std::string& a_oldIdentity, const std::string& a_id)
+	{
+		const auto      folder = FileFor(a_id).parent_path();
+		const auto      from = folder / (wheelstorage::SafeName(a_oldIdentity) + ".spells");
+		const auto      to = folder / (wheelstorage::SafeName(a_id) + ".spells");
+		std::error_code ec;
+		if (std::filesystem::exists(to, ec) || ec) return;
+		std::ifstream in(from);
+		if (!in || !wheelstorage::ReadHeader(in, a_oldIdentity, wheelstorage::kSpellNamesSignature)) return;
+		std::ostringstream data;
+		wheelstorage::WriteHeader(data, a_id, wheelstorage::kSpellNamesSignature);
+		for (std::string line; std::getline(in, line);) data << line << '\n';
+		if (atomicfile::Write(to, data.str(), false)) {
+			spellnames::Reset();   // read the names under the CharacterId from now on
+		} else {
+			logger::error("wheels: could not copy custom-spell names {} to {}", from.filename().string(), to.filename().string());
+		}
+	}
+
 	// First load under the save's CharacterId (owner-approved rule, KB bugs/improved-wheels-plus/IWP-039 "Step 2 migration rule", item 6):
 	// candidates are the non-empty "<name> #<seed>" files of this character's name not yet adopted by another CharacterId, the exact
 	// name+seed file first, then the most recent. One is adopted when it is the exact file, its Equipment actives are the save's quick
@@ -175,6 +197,7 @@ namespace wheels::detail
 			if (c.exact || MatchesNativeKeys(c.model) || (owned > 0 && owned * 2 >= total)) {
 				g_wheels = c.model;
 				MarkAdopted(c.file, a_id);
+				AdoptSpellNames(c.identity, a_id);
 				if (!Save()) logger::error("wheels: adopted assignments could not be written to {}; kept in memory, retried on the next change", FileFor(a_id).filename().string());
 				logger::warn("wheels: assignments of {} adopted for CharacterId {} ({}); the old file is kept", c.file, a_id, FileFor(a_id).filename().string());
 				return 1;
@@ -286,6 +309,7 @@ namespace wheels::detail
 				std::ostringstream data;
 				if (read) wheelstorage::WriteAssignments(data, a_name, g_wheels);
 				if (read && atomicfile::Write(path, data.str())) {
+					AdoptSpellNames(inside, a_name);
 					logger::warn("wheels: renamed assignment file accepted for CharacterId {} (it named '{}')", a_name, inside);
 					return;
 				}

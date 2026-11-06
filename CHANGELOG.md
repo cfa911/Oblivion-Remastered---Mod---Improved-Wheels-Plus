@@ -16,6 +16,8 @@ in `git log`. A version number is issued by the version gate only once a build i
   the most recent non-empty one whose items the character owns (or whose active entries match the save's quick keys); each old
   file goes to one character only (`adopted.txt`). Otherwise the wheels stay off with a warning naming the manual fix (rename
   the old file to `<CharacterId>.iwp`).
+- The matching old `.spells` file (custom-spell names) is copied with an adopted or renamed wheel file; an existing
+  `<CharacterId>.spells` is never overwritten.
 - Wheels are ready about 1 s after a load instead of 3 s when the CharacterId is known.
 
 ## 2.5.0 - 2026-11-02 - Improved Wheels Plus
