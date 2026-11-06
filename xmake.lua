@@ -15,8 +15,8 @@ add_shflags("/PDBALTPATH:%_PDB%", {force = true})
 includes("lib/commonlibob64")
 
 set_project("ImprovedWheelMenu")
-set_version("2.5.0")   -- xmake only parses major.minor.patch (OBSE sees 2.5.0.0); a release number with a fourth part is IWM_RELEASE below
-local IWM_RELEASE = "2.5.0"
+set_version("2.6.0")   -- xmake only parses major.minor.patch (OBSE sees 2.5.0.0); a release number with a fourth part is IWM_RELEASE below
+local IWM_RELEASE = "2.6.0"
 set_license("GPL-3.0-or-later")
 set_languages("c++23")
 set_warnings("allextra")

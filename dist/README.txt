@@ -1,6 +1,6 @@
 Improved Wheel - Keyboard and Better Controller Support
 =======================================================
-Version 2.5.0
+Version 2.6.0
 
 The dedicated controller Ammo shortcut is unbound by default ([AmmoWheel] uButton=0).
 Set uButton=8 for D-pad Right. The Ammo wheel stays enabled; existing INI bindings are preserved.
@@ -103,11 +103,14 @@ KNOWN ISSUES
 FIRST START: PLUG AND PLAY
 --------------------------
 Nothing to clear by hand. The first time each character loads (about three seconds in), the mod clears the game's own hotkey wheel
-(items and spells) and starts its own wheels empty, then saves them as OBSE\Plugins\ImprovedWheelsPlus\Assignments\<character>.iwp
-(and <character>.spells, the names of the spells you made). Anything that was on the game's own wheel is gone after that first load; make
+(items and spells) and starts its own wheels empty, then saves them as OBSE\Plugins\ImprovedWheelsPlus\Assignments\<CharacterId>.iwp
+(and <CharacterId>.spells, the names of the spells you made; the CharacterId is the id the game keeps in the save). Anything that was on the game's own wheel is gone after that first load; make
 your wheels with the favourite button, the assign panel (L3 / keyboard R, then hold X for 0.6 s on a slot to clear it) or the number keys.
 Wheels with no stored file start empty, and the game's own hotkeys are checked empty before you can assign anything.
-Wheels of an earlier version or of another wheel mod are not imported. Existing ini files retain their bindings.
+Wheels of another wheel mod are not imported. Existing ini files retain their bindings.
+UPDATING FROM 2.5.0 OR EARLIER: the old <character name> _<seed>.iwp files are kept and taken over once into <CharacterId>.iwp
+(with the matching .spells) on the first load of each character; adopted.txt records which old file went to which character.
+If no old file matches safely the wheels stay off and ImprovedWheelMenu.log names the file to rename the right old file to.
 
 INSTALLATION
 ------------
