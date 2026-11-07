@@ -4,8 +4,10 @@
 // for one character on a player's machine, so "<name> #<seed>" lost that character's wheels.
 #include "game/Inventory.h"
 
+#include "core/Settings.h"
 #include "engine/Reflect.h"
 #include "engine/Ui.h"
+#include "wheels/WheelStorage.h"
 
 namespace inventory
 {
@@ -40,7 +42,7 @@ namespace inventory
 		}
 	}
 
-	std::string Identity()
+	std::string CharacterId()
 	{
 		static std::string cached;
 		static ULONGLONG   readAt = 0;
@@ -49,6 +51,12 @@ namespace inventory
 			readAt = now + 250;   // one reflected call at most every 250 ms (the wheel asks every 100 ms)
 			cached = ReadCharacterId();
 		}
-		return cached.empty() ? PlayerName() : cached;
+		return cached;
+	}
+
+	std::string Identity()
+	{
+		const bool byPlayer = settings::Get().savingByPlayerName;   // the name alone needs no CharacterId read
+		return wheelstorage::FileIdentity(byPlayer, byPlayer ? std::string() : CharacterId(), PlayerName());
 	}
 }

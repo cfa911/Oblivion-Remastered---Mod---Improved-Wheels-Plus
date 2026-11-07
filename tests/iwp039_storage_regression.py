@@ -23,8 +23,14 @@ def function(name):
 
 
 # Helpers added by the IWP-039 seed-change fix; absent from older sources (the checks below then fail, not the build).
-OPTIONAL = tuple(n for n in ("OtherIdentityFile", "MatchesNativeKeys", "OwnedEntries", "AdoptedIndex", "AdoptedElsewhere", "MarkAdopted", "AdoptSpellNames", "AdoptLegacy")
+OPTIONAL = tuple(n for n in ("OtherIdentityFile", "MatchesNativeKeys", "OwnedEntries", "AdoptedIndex", "AdoptedElsewhere", "MarkAdopted", "AdoptSpellNames", "AdoptLegacy", "AdoptForName")
                  if re.search(r"(?:bool|int|void|std::filesystem::path) " + n + r"\(", source))
+
+storage_header = (ROOT / "src/wheels/WheelStorage.h").read_text(encoding="utf-8")
+# bSavingByPlayerName (2.7.0): the file identity rule; older sources get the 2.6.0 rule, so the checks fail instead of the build
+FILE_IDENTITY = "" if "FileIdentity(" in storage_header else r'''
+namespace wheelstorage { inline std::string FileIdentity(bool, std::string_view id, std::string_view name) { return id.empty() ? std::string(name) : std::string(id); } }
+'''
 
 program = r'''
 #include <algorithm>
@@ -58,7 +64,11 @@ template<class... Args> void warn(const char* message, Args&&...) {
 namespace settings {
 std::filesystem::path root;
 auto PluginFolder() { return root; }
+struct Values { bool savingByPlayerName = false; };
+Values values;
+const Values& Get() { return values; }
 }
+''' + FILE_IDENTITY + r'''
 namespace inventory {
 std::string name = "Character #11111111";
 std::string characterId;   // the save's CharacterId as the game reports it ("" = not available)
@@ -68,7 +78,8 @@ KeyMap keys{};
 KeyMap Keys() { return keys; }
 std::set<std::uint32_t> owned;   // items carried and spells known by the character now playing
 bool Has(std::uint32_t id) { return owned.count(id) > 0; }
-std::string Identity() { return characterId.empty() ? name : characterId; }
+std::string Identity() { return wheelstorage::FileIdentity(settings::values.savingByPlayerName, characterId, name); }
+std::string CharacterId() { return characterId; }
 bool ready = true;
 int clearCalls = 0;
 bool Ready() { return ready; }
@@ -133,6 +144,7 @@ void reset(const std::filesystem::path& root) {
     g_loadCandidateAt = g_storageRetryAt = g_sanitizeAt = 0;
     g_storageRejected = g_initializeEmpty = g_sanitized = g_identityHeld = false;
     g_emptySetup.Reset(); ++g_generation;
+    settings::values.savingByPlayerName = false;
     inventory::name = "Character #11111111"; inventory::ready = true; inventory::characterId.clear(); inventory::keys = {}; inventory::owned.clear();
     inventory::clearCalls = logger::readyMessages = logger::notAdopted = atomicfile::writes = 0;
     atomicfile::fail = atomicfile::race = false; clockNow = 10000;
@@ -347,6 +359,44 @@ int main(int argc, char** argv) {
     settled();
     check(present(0x7777) && spellsText(G).find("Renamed Case") != std::string::npos,
           "a hand-renamed wheel file brings its custom-spell names too");
+
+    // [Wheel] bSavingByPlayerName=1: files named only by the player-name placeholder ("Character.iwp"), the old file copied once
+    check(wheelstorage::FileIdentity(true, G, "UI_UserInputText_3_386_2 #46727C4B") == "UI_UserInputText_3_386_2" &&
+          wheelstorage::FileIdentity(false, G, "UI_UserInputText_3_386_2 #46727C4B") == G &&
+          wheelstorage::FileIdentity(false, "", "UI_UserInputText_3_386_2 #46727C4B") == "UI_UserInputText_3_386_2 #46727C4B",
+          "bSavingByPlayerName keys files on the name without the seed; off keeps the CharacterId");
+    reset(root); settings::values.savingByPlayerName = true; inventory::characterId = G;
+    settled(); clockNow += 4000; EnsureLoadedNow(); EnsureLoadedNow();
+    check(std::filesystem::exists(FileFor("Character")) && !std::filesystem::exists(FileFor(G)),
+          "bSavingByPlayerName: a new character's file is <name>.iwp");
+
+    reset(root); settings::values.savingByPlayerName = true; inventory::characterId = G; writeModel(G, 0x1234);
+    writeSpells(G, "FF001234	ById Spell");
+    settled();
+    wheelstorage::Model byName{};
+    {
+        std::ifstream in(spellsFor("Character"));
+        check(present(0x1234) && readModel("Character", byName) && byName[0][0].entries == std::vector<std::uint32_t>{0x1234} &&
+              std::filesystem::exists(FileFor(G)) && inventory::clearCalls == 0,
+              "bSavingByPlayerName: the CharacterId file is copied to <name>.iwp and kept");
+        check(wheelstorage::ReadHeader(in, "Character", wheelstorage::kSpellNamesSignature) &&
+              spellsText("Character").find("ById Spell") != std::string::npos, "bSavingByPlayerName: its custom-spell names go along");
+    }
+
+    reset(root); settings::values.savingByPlayerName = true; writeModel("Character #22222222", 0x7777);
+    settled();
+    check(present(0x7777) && readModel("Character", byName) && std::filesystem::exists(FileFor("Character #22222222")) &&
+          inventory::clearCalls == 0, "bSavingByPlayerName: without a CharacterId file an old seed file is copied");
+
+    reset(root); settings::values.savingByPlayerName = true; inventory::characterId = G;
+    writeModel(G, 0x1234); writeModel("Character #22222222", 0x7777);
+    settled();
+    check(present(0x1234), "bSavingByPlayerName: the CharacterId file is preferred over a seed file");
+
+    reset(root); settings::values.savingByPlayerName = true; inventory::characterId = G;
+    writeModel(G, 0x1234); writeModel("Character", 0x5555);
+    settled();
+    check(present(0x5555) && atomicfile::writes == 0, "bSavingByPlayerName: an existing <name>.iwp is loaded as it is");
 
     std::filesystem::remove_all(root);
     return failures ? 1 : 0;

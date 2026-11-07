@@ -80,6 +80,7 @@ namespace settings
 			v.blockFavouriteDropSell = ReadInt(ini, L"Wheel", L"bBlockFavouriteDropSell", v.blockFavouriteDropSell ? 1 : 0, 0, 1) != 0;
 			v.stayOpenAfterUse = ReadInt(ini, L"Wheel", L"bStayOpenAfterUse", v.stayOpenAfterUse ? 1 : 0, 0, 1) != 0;
 			v.rememberWheel = ReadInt(ini, L"Wheel", L"bRememberWheel", v.rememberWheel ? 1 : 0, 0, 1) != 0;
+			v.savingByPlayerName = ReadInt(ini, L"Wheel", L"bSavingByPlayerName", v.savingByPlayerName ? 1 : 0, 0, 1) != 0;
 			v.showSlotCapacity = ReadInt(ini, L"Wheel", L"bShowSlotCapacity", v.showSlotCapacity ? 1 : 0, 0, 1) != 0;
 			v.theme.magic = ReadInt(ini, L"Theme", L"bMagicWheel", 1, 0, 1) != 0;
 			v.theme.inventory = ReadInt(ini, L"Theme", L"bInventoryWheel", 1, 0, 1) != 0;

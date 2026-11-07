@@ -214,6 +214,66 @@ namespace wheels::detail
 		return -1;
 	}
 
+	// [Wheel] bSavingByPlayerName, first load of "<name>.iwp": the character's CharacterId file is copied once, else its newest non-empty
+	// "<name> _<seed>.iwp" (the current seed first), with its custom-spell names. The source file stays. No adopted.txt mark: with
+	// this option the name is the character. 1 = copied, 0 = nothing to copy (fresh setup).
+	int AdoptForName(const std::string& a_name)
+	{
+		struct Source
+		{
+			std::string                     identity;
+			wheelstorage::Model             model{};
+			std::filesystem::file_time_type time{};
+			bool                            exact = false;
+		};
+		const auto filled = [](const wheelstorage::Model& a_model) {
+			for (const auto& wheel : a_model) {
+				for (const auto& slot : wheel) {
+					if (!slot.entries.empty()) return true;
+				}
+			}
+			return false;
+		};
+		std::vector<Source> found;
+		if (const std::string id = inventory::CharacterId(); wheelstorage::IsCharacterId(id)) {
+			Source s{ id };
+			if (std::ifstream in(FileFor(id)); in && wheelstorage::ReadAssignments(in, id, s.model) && filled(s.model)) found.push_back(std::move(s));
+		}
+		if (found.empty()) {
+			const std::string  legacy = inventory::PlayerName();
+			const std::string  stem = wheelstorage::SafeName(a_name) + " _";
+			const std::wstring wstem(stem.begin(), stem.end());   // SafeName keeps ASCII only
+			std::error_code    ec;
+			for (std::filesystem::directory_iterator it(FileFor(a_name).parent_path(), ec), end; !ec && it != end; it.increment(ec)) {
+				const std::wstring file = it->path().filename().wstring();
+				if (file.size() != wstem.size() + 12 || !file.starts_with(wstem) || !file.ends_with(L".iwp")) continue;
+				std::string seed;
+				bool        hex = true;
+				for (auto ch = file.begin() + wstem.size(); ch != file.end() - 4; ++ch) {
+					hex = hex && *ch < 128 && std::isxdigit(static_cast<int>(*ch));
+					seed += static_cast<char>(*ch);
+				}
+				if (!hex) continue;
+				Source s{ a_name + " #" + seed };
+				std::ifstream in(it->path());
+				if (!in || !wheelstorage::ReadAssignments(in, s.identity, s.model) || !filled(s.model)) continue;
+				std::error_code tec;
+				s.time = std::filesystem::last_write_time(it->path(), tec);
+				s.exact = s.identity == legacy;
+				found.push_back(std::move(s));
+			}
+			std::sort(found.begin(), found.end(), [](const Source& a, const Source& b) { return a.exact != b.exact ? a.exact : a.time > b.time; });
+		}
+		if (found.empty()) return 0;
+		const auto& source = found.front();
+		g_wheels = source.model;
+		AdoptSpellNames(source.identity, a_name);
+		if (!Save()) logger::error("wheels: copied assignments could not be written to {}; kept in memory, retried on the next change", FileFor(a_name).filename().string());
+		logger::warn("wheels: bSavingByPlayerName - assignments of {} copied to {}; the old file is kept", FileFor(source.identity).filename().string(),
+			FileFor(a_name).filename().string());
+		return 1;
+	}
+
 	bool Save()
 	{
 		g_generation.fetch_add(1, std::memory_order_relaxed);
@@ -275,7 +335,9 @@ namespace wheels::detail
 				g_storageRejected = true;
 				g_storageRetryAt = GetTickCount64() + 5000;
 				if (!retrying) logger::error("wheels: assignment file cannot be read; will retry without overwriting: {}", path.string());
-			} else if (const int adopted = wheelstorage::IsCharacterId(a_name) ? AdoptLegacy(a_name, !wasHeld) : 0; adopted > 0) {
+			} else if (const int adopted = wheelstorage::IsCharacterId(a_name) ? AdoptLegacy(a_name, !wasHeld) :
+			                               settings::Get().savingByPlayerName ? AdoptForName(a_name) : 0;
+					   adopted > 0) {
 				return;
 			} else if (adopted < 0) {
 				g_identityHeld = true;

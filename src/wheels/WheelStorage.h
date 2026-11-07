@@ -41,6 +41,15 @@ namespace wheelstorage
 		return a_name.substr(0, hash);
 	}
 
+	// What the wheel files are keyed on. [Wheel] bSavingByPlayerName=1: the player-name placeholder alone, without the seed
+	// ("UI_UserInputText_3_386_2.iwp"); two characters with the same placeholder then share their wheels. Off (default): the save's
+	// CharacterId, else "<name> #<seed>" (IWP-039).
+	inline std::string FileIdentity(bool a_byPlayer, std::string_view a_characterId, std::string_view a_playerName)
+	{
+		if (a_byPlayer) return std::string(IdentityBase(a_playerName));
+		return std::string(a_characterId.empty() ? a_playerName : a_characterId);
+	}
+
 	// "XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX": the save's CharacterId as inventory::Identity() writes it
 	inline bool IsCharacterId(std::string_view a_name)
 	{

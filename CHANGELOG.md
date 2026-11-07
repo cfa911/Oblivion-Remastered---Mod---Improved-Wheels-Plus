@@ -3,6 +3,13 @@
 Written as changes happen, not reconstructed afterwards (rule 61). Started 2026-09-29; the history before this file is
 in `git log`. A version number is issued by the version gate only once a build is seen working in game (rule 48).
 
+## Unreleased
+
+### Added
+- `[Wheel] bSavingByPlayerName` (default 0): 1 names the wheel and spell-name files after the player-name placeholder only
+  (`UI_UserInputText_3_386_2.iwp`, `.spells`), not the save's CharacterId. The first load with it on copies the character's
+  CharacterId file (else its newest non-empty `<name> _<seed>.iwp`) once to the new name, with its `.spells`; the old file stays.
+
 ## 2.6.0 - 2026-11-06 - Improved Wheels Plus
 
 ### Fixed

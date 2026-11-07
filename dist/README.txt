@@ -111,6 +111,10 @@ Wheels of another wheel mod are not imported. Existing ini files retain their bi
 UPDATING FROM 2.5.0 OR EARLIER: the old <character name> _<seed>.iwp files are kept and taken over once into <CharacterId>.iwp
 (with the matching .spells) on the first load of each character; adopted.txt records which old file went to which character.
 If no old file matches safely the wheels stay off and ImprovedWheelMenu.log names the file to rename the right old file to.
+OPTIONAL: [Wheel] bSavingByPlayerName=1 names the files after the player name only, for example UI_UserInputText_3_386_2.iwp and
+.spells (off by default). On the first load with it on, the character's <CharacterId>.iwp (or else its newest old
+<character name> _<seed>.iwp) is copied once to the new name, with its .spells; the old file stays. Characters whose player name is the
+same share their wheels with this option.
 
 INSTALLATION
 ------------
