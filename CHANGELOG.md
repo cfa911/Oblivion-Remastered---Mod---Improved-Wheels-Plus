@@ -3,7 +3,7 @@
 Written as changes happen, not reconstructed afterwards (rule 61). Started 2026-09-29; the history before this file is
 in `git log`. A version number is issued by the version gate only once a build is seen working in game (rule 48).
 
-## Unreleased
+## 2.6.1 - 2026-11-07 - Improved Wheels Plus
 
 ### Added
 - `[Wheel] bSavingByPlayerName` (default 0): 1 names the wheel and spell-name files after the player-name placeholder only
