@@ -15,6 +15,7 @@ namespace settings
 		bool blockFavouriteDropSell = false;   // [Wheel] bBlockFavouriteDropSell: a favourite cannot be dropped, sold or handed over (the original mod's rule; 0: it can, and leaves the wheel)
 		bool stayOpenAfterUse = true;    // [Wheel] bStayOpenAfterUse: choosing a weapon or armour on the Equipment wheel (A, RB, click) leaves the wheel open for the next one
 		bool rememberWheel = true;   // [Wheel] bRememberWheel: the radial opens on the wheel it was left on (0: always on the Equipment wheel)
+		bool savingByPlayerName = false;   // [Wheel] bSavingByPlayerName: wheel and spell-name files named by the player-name placeholder only ("UI_UserInputText_3_386_2.iwp"), not the save's CharacterId
 		bool showSlotCapacity = false;   // [Wheel] bShowSlotCapacity: the slot counters read "2/5" (the capacity) instead of "2/3" (the entries the slot holds)
 		bool chooseOnClose = true;    // [Wheel] bChooseOnClose: closing the wheel (its button let go or pressed again) uses the pointed slot, as RB / A would
 		bool centreRestSnap = true;   // [Wheel] bCentreRestSnap: the right stick back at rest points at no slot
