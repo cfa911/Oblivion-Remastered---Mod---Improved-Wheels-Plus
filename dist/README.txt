@@ -1,6 +1,6 @@
 Improved Wheel - Keyboard and Better Controller Support
 =======================================================
-Version 2.6.0
+Version 2.6.1
 
 The dedicated controller Ammo shortcut is unbound by default ([AmmoWheel] uButton=0).
 Set uButton=8 for D-pad Right. The Ammo wheel stays enabled; existing INI bindings are preserved.

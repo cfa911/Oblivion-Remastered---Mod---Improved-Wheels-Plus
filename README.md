@@ -2,7 +2,7 @@
 
 Three wheels for gear, spells, scrolls and arrows in **Oblivion Remastered**, with keyboard, mouse and controller support.
 
-**Current release: 2.6.0.** [Download on Nexus Mods](https://www.nexusmods.com/oblivionremastered/mods/5713) or [GitHub Releases](https://github.com/cfa911/Oblivion-Remastered---Mod---Improved-Wheels-Plus/releases/latest).
+**Current release: 2.6.1.** [Download on Nexus Mods](https://www.nexusmods.com/oblivionremastered/mods/5713) or [GitHub Releases](https://github.com/cfa911/Oblivion-Remastered---Mod---Improved-Wheels-Plus/releases/latest).
 
 Read the [User Documentation](USER_DOCUMENTATION.md) for detailed controls, settings, assignment backups and troubleshooting, or the [changelog](CHANGELOG.md) for version history.
 
@@ -15,6 +15,10 @@ Read the [User Documentation](USER_DOCUMENTATION.md) for detailed controls, sett
 - **Per-character assignments:** wheel setups survive restarts. Entries unavailable in the loaded save are hidden rather than erased.
 - **Optional slow motion:** gameplay slows while a wheel is open and returns to normal when it closes. Sound is unchanged.
 - **Wheel themes:** blue Magic with gold details and red Inventory with silver details, including assignment panels. Each theme can be disabled separately.
+
+## New in 2.6.1
+
+- New optional ini setting `[Wheel] bSavingByPlayerName` (default `0`, off). Only change it if your wheels come up empty after loading a save or restarting the game: `1` saves the wheel files under the player name only (for example `UI_UserInputText_3_386_2.iwp` and `.spells`) instead of the save's CharacterId. On the first load with it on, the character's existing wheel file is copied to the new name; the old file stays. Characters that share a player name share their wheels with this setting. Details: [USER_DOCUMENTATION.md](USER_DOCUMENTATION.md#assignments-and-backups).
 
 ## New in 2.6.0
 
