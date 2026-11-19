@@ -27,7 +27,7 @@ program = r'''
 #include <vector>
 using Clock = std::chrono::steady_clock;
 namespace settings {
-struct Values { bool ammoWheel = true; WORD wheelButton = 0; } values;
+struct Values { bool ammoWheel = true; bool ammoInCycle = true; WORD wheelButton = 0; } values;
 Values& Get() { return values; }
 }
 namespace quickkeys {

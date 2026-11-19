@@ -1,5 +1,6 @@
 #include "core/ReadMemo.h"
 #include "game/QuickKeys.h"
+#include "diag/PerfDiag.h"   // TEMP-DIAG
 #include "game/MessageDiscovery.h"
 
 #include "game/Menus.h"
@@ -516,6 +517,7 @@ namespace quickkeys
 
 	bool GameMessageUp(bool a_immediate)
 	{
+		perfdiag::Scope perfScope(perfdiag::kMessageUp);   // TEMP-DIAG
 		static UE::UClass*     s_cls = nullptr;
 		static reflect::Handle s_last;   // the instance seen up last time: asked first
 		static std::vector<reflect::Handle> s_known;
@@ -578,6 +580,7 @@ namespace quickkeys
 		}
 		const ULONGLONG now = GetTickCount64();
 		if (now >= s_nextScan) {
+			perfdiag::Scope perfScope(perfdiag::kWheelScan);   // TEMP-DIAG
 			s_nextScan = now + 2000;
 			s_known.clear();
 			for (auto* w : reflect::Instances(cls)) {

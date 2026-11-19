@@ -398,15 +398,17 @@ namespace wheels
 
 	void SwitchWheel(int a_dir)
 	{
-		// Equipment -> Magic -> Ammo (when enabled) -> Equipment; left goes the other way round
+		// Equipment -> Magic -> Ammo (when enabled and bInWheelCycle) -> Equipment; left goes the other way round
 		std::vector<Wheel> order{ Wheel::kEquipment, Wheel::kMagic };
-		if (settings::Get().ammoWheel) order.push_back(Wheel::kAmmo);
-		int at = 0;
+		if (settings::Get().ammoWheel && settings::Get().ammoInCycle) order.push_back(Wheel::kAmmo);
+		int at = -1;
 		for (int i = 0; i < static_cast<int>(order.size()); ++i) {
 			if (order[static_cast<std::size_t>(i)] == Active()) at = i;
 		}
 		const int  n = static_cast<int>(order.size());
-		const Wheel next = order[static_cast<std::size_t>((at + (a_dir > 0 ? 1 : n - 1)) % n)];
+		// on the Ammo page outside the cycle (its own button opened it): it sits after Magic, so right -> Equipment, left -> Magic
+		const Wheel next = at < 0 ? (a_dir > 0 ? order.front() : order.back()) :
+			order[static_cast<std::size_t>((at + (a_dir > 0 ? 1 : n - 1)) % n)];
 		g_active.store(static_cast<int>(next));
 		logger::info("wheels: SWITCH {} -> the {} wheel is active", a_dir > 0 ? "right" : "left", Name(next));
 		if (quickkeys::RadialOpen() && EnsureLoaded()) {
@@ -426,6 +428,9 @@ namespace wheels
 			return;
 		}
 		g_keepUntil = GetTickCount64() + 1500;   // this press chose the wheel the radial opens on
+		if (a_wheel == Wheel::kAmmo) {
+			g_ammoChosenUntil = g_keepUntil;
+		}
 		if (a_wheel == Active()) {
 			return;
 		}
@@ -462,7 +467,12 @@ namespace wheels
 			g_active.store(static_cast<int>(Wheel::kEquipment));
 			logger::info("wheels: the radial opens on the Equipment wheel (bRememberWheel=0)");
 		}
+		if (Active() == Wheel::kAmmo && settings::Get().ammoWheel && !settings::Get().ammoInCycle && GetTickCount64() >= g_ammoChosenUntil) {
+			g_active.store(static_cast<int>(Wheel::kEquipment));   // bInWheelCycle=0: only the Ammo page's own button opens on it
+			logger::info("wheels: the radial opens on the Equipment wheel (Ammo is out of the cycle)");
+		}
 		g_keepUntil = 0;
+		g_ammoChosenUntil = 0;
 		if (Active() == Wheel::kAmmo && !(settings::Get().ammoWheel)) {
 			g_active.store(static_cast<int>(Wheel::kEquipment));
 		}

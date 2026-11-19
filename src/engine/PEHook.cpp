@@ -1,6 +1,7 @@
 #include "core/FunctionClassCache.h"
 #include "engine/PEHook.h"
 #include "core/TextUtil.h"
+#include "diag/PerfDiag.h"   // TEMP-DIAG
 
 namespace pe
 {
@@ -23,6 +24,8 @@ namespace pe
 
 		void Detour(UE::UObject* a_obj, UE::UFunction* a_fn, void* a_params)
 		{
+			const std::int64_t perfStart = perfdiag::Now();   // TEMP-DIAG
+			std::int64_t       perfOurs = 0;                   // TEMP-DIAG
 			ProcessEvent_t original = nullptr;
 			void** vt = a_obj ? *reinterpret_cast<void***>(a_obj) : nullptr;
 			const std::size_t ns = g_swappedCount.load(std::memory_order_acquire);
@@ -42,9 +45,11 @@ namespace pe
 					}
 				}
 			}
+			perfOurs = perfdiag::Now() - perfStart;   // TEMP-DIAG
 			if (original) {
 				original(a_obj, a_fn, a_params);
 			}
+			const std::int64_t perfAfter = perfdiag::Now();   // TEMP-DIAG
 			if (cls) {   // after the body: the post watchers
 				const std::size_t nw = g_watcherCount.load(std::memory_order_acquire);
 				for (std::size_t i = 0; i < nw; ++i) {
@@ -53,6 +58,7 @@ namespace pe
 					}
 				}
 			}
+			perfdiag::Add(perfdiag::kDetour, perfOurs + (perfdiag::Now() - perfAfter));   // TEMP-DIAG
 		}
 	}
 

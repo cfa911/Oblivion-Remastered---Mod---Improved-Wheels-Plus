@@ -88,6 +88,7 @@ namespace settings
 			v.centreRestSnap = ReadInt(ini, L"Wheel", L"bCentreRestSnap", v.centreRestSnap, 0, 1) != 0;
 			v.restSnapMs = ReadInt(ini, L"Wheel", L"uRestSnapMs", v.restSnapMs, 30, 1000);
 			v.ammoWheel = ReadInt(ini, L"AmmoWheel", L"bEnabled", v.ammoWheel, 0, 1) != 0;
+			v.ammoInCycle = ReadInt(ini, L"AmmoWheel", L"bInWheelCycle", v.ammoInCycle ? 1 : 0, 0, 1) != 0;
 			v.ammoButton = ReadInt(ini, L"AmmoWheel", L"uButton", v.ammoButton, 0, 0xFFFF);
 			v.ammoCentred = ReadInt(ini, L"AmmoWheel", L"uPosition", v.ammoCentred ? 1 : 0, 0, 1) != 0;
 			v.display.uiScalePercent = ReadInt(ini, L"Display", L"uUiScalePercent", v.display.uiScalePercent, 0, 500);

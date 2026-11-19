@@ -93,6 +93,8 @@ To get started: tap **R**, point with the mouse, right click until the entry you
 | Assign to the pointed slot | **A** in the assign panel |
 | Clear a pointed slot | Hold **X** for 0.6 seconds in the assign panel |
 
+Two different buttons show arrows: `[Wheel] uAmmoWheelButton` (and keyboard F8) opens the main wheel on its full Ammo page, from which LB / D-pad left-right still switch to Inventory or Magic; `[AmmoWheel] uButton` is the separate Ammo-only shortcut described next. Do not bind the same button to both. With `[AmmoWheel] bInWheelCycle=0` the main wheel's switching skips the Ammo page (Inventory <-> Magic only) and reopening never lands on it; its own buttons still open it.
+
 The dedicated Ammo shortcut is unbound by default (`[AmmoWheel] uButton=0`). Set `uButton=8` to bind **D-pad Right**. When bound, it opens the Ammo wheel; no bow is needed. By default it is a full ring of eight cells in the middle of the screen; with `uPosition=0` in `[AmmoWheel]` it is a compact half-wheel on the right edge, which becomes a full ring on its own above five arrow types. Point with the right stick or **D-pad up / down**, then press its button again or **A** to equip. **B** cancels. Its binding has its own row in the game's Controls menu.
 
 ## Adding and organizing entries

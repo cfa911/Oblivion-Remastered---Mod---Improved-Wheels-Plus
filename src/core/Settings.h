@@ -21,6 +21,7 @@ namespace settings
 		bool centreRestSnap = true;   // [Wheel] bCentreRestSnap: the right stick back at rest points at no slot
 		int  restSnapMs = 400;        // [Wheel] uRestSnapMs: how long at rest before the pointer lets go
 		bool ammoWheel = true;        // [AmmoWheel] bEnabled
+		bool ammoInCycle = true;      // [AmmoWheel] bInWheelCycle: 0 keeps the Ammo page out of the main wheel's switching (LB, D-pad left/right, L3/R3, Q/E); its own buttons still open it
 		int  ammoButton = 0;          // [AmmoWheel] uButton: 0 disables the shortcut (8 = D-pad right).
 		bool ammoCentred = true;      // [AmmoWheel] uPosition: 0 = a half wheel on the middle of the right-hand edge (the original), 1 = the whole ring in the middle of the screen, like the other wheels
 		struct Theme   // [Theme]: the redesigned look of a wheel (2.2.0): its picture, pointer arrow and name colours; one switch a wheel

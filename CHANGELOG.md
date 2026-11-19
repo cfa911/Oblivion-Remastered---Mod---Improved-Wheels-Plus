@@ -3,6 +3,15 @@
 Written as changes happen, not reconstructed afterwards (rule 61). Started 2026-09-29; the history before this file is
 in `git log`. A version number is issued by the version gate only once a build is seen working in game (rule 48).
 
+## Unreleased
+
+### Added
+- `[AmmoWheel] bInWheelCycle` (default 1 = unchanged): 0 keeps the Ammo page out of the main wheel's switching (LB,
+  D-pad left/right, L3/R3, Q/E switch only Inventory <-> Magic) and a reopen never lands on Ammo. `[Wheel] uAmmoWheelButton`
+  / F8 still open the main wheel on its Ammo page; the Ammo-only shortcut (`[AmmoWheel] uButton`) is unchanged.
+- INI comments tell the two Ammo buttons apart (main wheel's Ammo page vs the Ammo-only shortcut, which alone uses
+  `uPosition`) and warn against binding the same button to both.
+
 ## 2.6.1 - 2026-11-07 - Improved Wheels Plus
 
 ### Added
