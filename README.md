@@ -2,7 +2,7 @@
 
 Three wheels for gear, spells, scrolls and arrows in **Oblivion Remastered**, with keyboard, mouse and controller support.
 
-**Current release: 2.6.1.** [Download on Nexus Mods](https://www.nexusmods.com/oblivionremastered/mods/5713) or [GitHub Releases](https://github.com/cfa911/Oblivion-Remastered---Mod---Improved-Wheels-Plus/releases/latest).
+**Current release: 2.7.0.** [Download on Nexus Mods](https://www.nexusmods.com/oblivionremastered/mods/5713) or [GitHub Releases](https://github.com/cfa911/Oblivion-Remastered---Mod---Improved-Wheels-Plus/releases/latest).
 
 Read the [User Documentation](USER_DOCUMENTATION.md) for detailed controls, settings, assignment backups and troubleshooting, or the [changelog](CHANGELOG.md) for version history.
 
@@ -15,6 +15,13 @@ Read the [User Documentation](USER_DOCUMENTATION.md) for detailed controls, sett
 - **Per-character assignments:** wheel setups survive restarts. Entries unavailable in the loaded save are hidden rather than erased.
 - **Optional slow motion:** gameplay slows while a wheel is open and returns to normal when it closes. Sound is unchanged.
 - **Wheel themes:** blue Magic with gold details and red Inventory with silver details, including assignment panels. Each theme can be disabled separately.
+
+## New in 2.7.0
+
+- **Choose which wheels rotate:** `[Wheel] sWheelCycle=Inventory,Magic,Ammo` sets which wheels LB / D-pad left-right / L3 / R3 (keyboard Q / E) switch between, and in which order. Leave a name out to take that wheel out of the rotation; Inventory and Magic still open from their own buttons.
+- **One Ammo shortcut setting:** `[AmmoWheel] uButton` (controller) and the new `sButton` (keyboard, default **J**). With mouse and keyboard, move the mouse to point at an arrow and click (or Up/Down + Enter) to equip; RB equips like A instead of casting the readied spell.
+- **Keyboard wheel keys moved off the game's own keys:** Inventory wheel **V**, Magic wheel **B**, Ammo shortcut **J** (F6 / F7 / F8 opened the game's Quest, Help and Options menus). An older INI keeps its keys until it is replaced.
+- **Lower runtime cost:** with a wheel open the plugin uses about half the game-thread time it did, and about a third in the Inventory and Magic assign panels (fewer whole-object searches, icons not re-read every frame).
 
 ## New in 2.6.1
 

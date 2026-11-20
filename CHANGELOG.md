@@ -5,10 +5,12 @@ in `git log`. A version number is issued by the version gate only once a build i
 
 ## Unreleased
 
+## 2.7.0 - 2026-11-20 - Improved Wheels Plus
+
 ### Added
 - `[Wheel] sWheelCycle=Inventory,Magic,Ammo`: the wheels LB / D-pad left-right / L3 / R3 / Q / E rotate through, in that
   order. Leave a name out to take that wheel out of the rotation; reopening never lands on it (with `bRememberWheel=0` the
-  wheel opens on the list's first wheel). Inventory and Magic still open from their own buttons / F6 / F7.
+  wheel opens on the list's first wheel). Inventory and Magic still open from their own buttons / V / B.
 
 ### Changed
 - Lower runtime cost with a wheel or an assign panel up: whether a game message is on screen is now learned from the
