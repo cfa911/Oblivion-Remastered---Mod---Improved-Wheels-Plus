@@ -1,5 +1,4 @@
 #include "input/Pad.h"
-#include "diag/PerfDiag.h"   // TEMP-DIAG
 #include "core/ReadMemo.h"
 #include "input/RadialSelection.h"
 #include "input/CloseEpoch.h"
@@ -903,41 +902,14 @@ namespace pad
 			a_pad.wButtons = out;
 		}
 
-		void PerfFlush()   // TEMP-DIAG: one line per second, sums only
-		{
-			static std::int64_t s_last = 0, s_freq = 0;
-			if (!s_freq) { LARGE_INTEGER f; QueryPerformanceFrequency(&f); s_freq = f.QuadPart; }
-			const std::int64_t now = perfdiag::Now();
-			if (!s_last) { s_last = now; return; }
-			if (now - s_last < s_freq) return;
-			const double secs = static_cast<double>(now - s_last) / static_cast<double>(s_freq);
-			s_last = now;
-			double ms[perfdiag::kCount];
-			std::uint32_t n[perfdiag::kCount];
-			for (int i = 0; i < perfdiag::kCount; ++i) {
-				ms[i] = static_cast<double>(perfdiag::g_ticks[i].exchange(0)) * 1000.0 / static_cast<double>(s_freq) / secs;
-				n[i] = perfdiag::g_calls[i].exchange(0);
-			}
-			const int ctx = quickkeys::RadialOpen() ? 1 : menus::Active() != menus::Menu::kNone ? 2 : menus::AnyOpen() ? 3 : 0;
-			logger::warn("TEMP-DIAG perf ctx={} ms/s: chained {:.2f} (n{}) frameCb {:.2f} keyboard {:.2f} rewrite {:.2f} detour {:.2f} (n{}) "
-				"instances {:.2f} (n{}) messageUp {:.2f} (n{}) wheelScan {:.2f} (n{})",
-				ctx == 1 ? "wheel" : ctx == 2 ? "invmagic" : ctx == 3 ? "menu" : "play",
-				ms[perfdiag::kChained], n[perfdiag::kChained], ms[perfdiag::kFrameCb], ms[perfdiag::kKeyboard], ms[perfdiag::kRewrite],
-				ms[perfdiag::kDetour], n[perfdiag::kDetour], ms[perfdiag::kInstances], n[perfdiag::kInstances],
-				ms[perfdiag::kMessageUp], n[perfdiag::kMessageUp], ms[perfdiag::kWheelScan], n[perfdiag::kWheelScan]);
-		}
-
 		DWORD WINAPI Chained(DWORD a_user, XINPUT_STATE* a_state)
 		{
 			if (GetCurrentThreadId() != g_gameThread) {
 				return g_previous ? g_previous(a_user, a_state) : ERROR_DEVICE_NOT_CONNECTED;
 			}
-			if (a_user == 0) PerfFlush();   // TEMP-DIAG
-			perfdiag::Scope perfChained(perfdiag::kChained);   // TEMP-DIAG (includes the game's own XInput read)
 			readmemo::Scope readScope;
 			if (a_user == 0) {
 				if (auto cb = g_frameCallback.load(std::memory_order_acquire)) {
-					perfdiag::Scope perfCb(perfdiag::kFrameCb);   // TEMP-DIAG
 					cb();
 				}
 			}
@@ -958,9 +930,7 @@ namespace pad
 			if (rc != ERROR_SUCCESS) {
 				XINPUT_STATE blank{};
 				XINPUT_GAMEPAD probe{};
-				const std::int64_t perfKb = perfdiag::Now();   // TEMP-DIAG
-				const bool keys = keyboard::Apply(probe);
-				perfdiag::Add(perfdiag::kKeyboard, perfdiag::Now() - perfKb);   // TEMP-DIAG   // the keyboard as a virtual controller (INI [Keyboard])
+				const bool keys = keyboard::Apply(probe);   // the keyboard as a virtual controller (INI [Keyboard])
 				if (!keys && !keyboard::PresentWhenNoPad()) {
 					return rc;
 				}
@@ -973,14 +943,10 @@ namespace pad
 				a_state->Gamepad = probe;
 				rc = ERROR_SUCCESS;
 			} else {
-				perfdiag::Scope perfKb(perfdiag::kKeyboard);   // TEMP-DIAG
 				keyboard::Apply(a_state->Gamepad);
 			}
 			const SHORT rawRX = a_state->Gamepad.sThumbRX, rawRY = a_state->Gamepad.sThumbRY;
-			{
-				perfdiag::Scope perfRw(perfdiag::kRewrite);   // TEMP-DIAG
-				Rewrite(a_state->Gamepad);
-			}
+			Rewrite(a_state->Gamepad);
 			const auto& g = a_state->Gamepad;
 			// the game only processes a state whose packet number moved: move it whenever what we hand over changes
 			if (g.wButtons != g_prevOutButtons || g.bLeftTrigger != g_prevOutLT || g.bRightTrigger != g_prevOutRT || g.sThumbRX != rawRX || g.sThumbRY != rawRY) {

@@ -1,5 +1,4 @@
 #include "engine/Reflect.h"
-#include "diag/PerfDiag.h"   // TEMP-DIAG
 
 #include "engine/PEHook.h"
 #include <unordered_map>
@@ -318,7 +317,6 @@ namespace reflect
 
 	std::vector<UE::UObject*> Instances(UE::UClass* a_class)
 	{
-		perfdiag::Scope perfScope(perfdiag::kInstances);   // TEMP-DIAG
 		std::vector<UE::UObject*> out;
 		auto* arr = UE::FUObjectArray::GetSingleton();
 		if (!arr || !a_class) {
