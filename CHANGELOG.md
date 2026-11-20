@@ -16,6 +16,8 @@ in `git log`. A version number is issued by the version gate only once a build i
   game-thread time per second in the measured run).
 - Lower runtime cost in the Inventory and Magic assign panels: the wheel's item and spell pictures no longer re-read every
   menu row on each frame (overlay 23.9 -> 7.7 ms of game-thread time per second in the measured run).
+- The wheel widget search no longer scans every object every 2 s while the wheel is on screen; wheels are learned from
+  their own events (assign panels: about one scan every 10 s instead of every 2 s).
 - The Ammo shortcut is one setting: `[AmmoWheel] uButton` (controller) and the new `[AmmoWheel] sButton` (keyboard,
   default **J**), opening the half or full Ammo wheel by `uPosition`. `[Wheel] uAmmoWheelButton` and `[Keyboard] sAmmoWheel`
   are gone from the INI (an older INI's `uAmmoWheelButton` is still used; its `sAmmoWheel` is not).

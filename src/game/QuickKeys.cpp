@@ -171,9 +171,33 @@ namespace quickkeys
 			}
 		}
 
+		// wheel widgets learned from their events (OnWidgetEvent), so FindVisibleWheel needs no periodic scan while one is shown
+		std::mutex                   g_wheelsLock;   // never held across a ProcessEvent call
+		std::vector<reflect::Handle> g_wheels;
+
+		void NoteWheel(UE::UObject* a_w)
+		{
+			if (!a_w) return;
+			std::scoped_lock l(g_wheelsLock);
+			for (auto& h : g_wheels) {
+				if (h.index == a_w->internalIndex) {
+					if (h.ptr != a_w) h = reflect::Hold(a_w);   // the slot now holds a new wheel widget
+					return;
+				}
+			}
+			std::erase_if(g_wheels, [](const reflect::Handle& a_h) { return !reflect::Get(a_h); });
+			g_wheels.push_back(reflect::Hold(a_w));
+		}
+		// wheel widgets learned end
+
 		// pe::Watch handler: runs on the game thread before the widget's function
 		void OnWidgetEvent(UE::UObject* a_obj, UE::UFunction* a_fn, void* a_params)
 		{
+			static UE::UObject* s_noted = nullptr;   // the last widget noted: most calls are on the same one
+			if (a_obj != s_noted) {
+				NoteWheel(a_obj);
+				s_noted = a_obj;
+			}
 			if (a_fn == g_fnVisibility) {
 				if (a_params) { OnVisibility(a_obj, *static_cast<const std::uint8_t*>(a_params)); }
 			} else if (a_fn == g_fnKeyIndex) {
@@ -607,31 +631,45 @@ namespace quickkeys
 
 	static UE::UObject* FindVisibleWheel()
 	{
-		// the wheel widgets, found by a whole-array scan at most every 2 s and kept by their slots
-		static std::vector<reflect::Handle> s_known;
-		static ULONGLONG                    s_nextScan = 0;
+		// the wheel widgets: learned from their own events (NoteWheel) and, only while none of them is shown, by a whole-array
+		// scan at most every 2 s (it scanned every 2 s even with the wheel up: ~2 ms a second, timing run 2026-11-20)
+		static ULONGLONG s_nextScan = 0;
 		auto* cls = g_widgetClass.load(std::memory_order_acquire);
 		if (!cls || !reflect::Ok()) {
 			return nullptr;
 		}
-		const ULONGLONG now = GetTickCount64();
-		if (now >= s_nextScan) {
-			s_nextScan = now + 2000;
-			s_known.clear();
-			for (auto* w : reflect::Instances(cls)) {
-				s_known.push_back(reflect::Hold(w));
-			}
-		}
-		for (const auto& h : s_known) {
-			auto* w = reflect::Get(h);
-			if (!w) {
-				continue;
-			}
-			if (ui::ShownOnScreen(w)) {   // itself AND every parent (the magic menu hides the panel through a parent)
+		static reflect::Handle s_last;   // the one shown last time: asked first (each on-screen check walks the parents)
+		const auto shown = []() -> UE::UObject* {
+			if (auto* w = reflect::Get(s_last); w && ui::ShownOnScreen(w)) {   // itself AND every parent (the magic menu hides the panel through a parent)
 				return w;
 			}
+			std::vector<reflect::Handle> known;
+			{
+				std::scoped_lock l(g_wheelsLock);
+				known = g_wheels;
+			}
+			for (const auto& h : known) {
+				if (h.ptr == s_last.ptr && h.index == s_last.index) continue;   // asked above
+				auto* w = reflect::Get(h);
+				if (w && ui::ShownOnScreen(w)) {
+					s_last = h;
+					return w;
+				}
+			}
+			return nullptr;
+		};
+		if (auto* w = shown()) {
+			return w;
 		}
-		return nullptr;
+		const ULONGLONG now = GetTickCount64();
+		if (now < s_nextScan) {
+			return nullptr;
+		}
+		s_nextScan = now + 2000;
+		for (auto* w : reflect::Instances(cls)) {
+			NoteWheel(w);
+		}
+		return shown();
 	}
 
 	UE::UObject* VisibleWheel()
