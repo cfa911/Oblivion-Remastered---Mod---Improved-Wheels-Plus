@@ -1,4 +1,5 @@
 #include "input/Controls.h"
+#include "input/KeySuspend.h"
 #include "core/FunctionClassCache.h"
 
 #include "game/Menus.h"
@@ -366,4 +367,53 @@ namespace controls
 		}
 	}
 
+	namespace
+	{
+		std::vector<std::pair<reflect::Handle, std::vector<keysuspend::Saved>>> g_mouseSuspended;   // contexts whose left button is off
+	}
+
+	void SuspendGameMouseButton(bool a_suspend)
+	{
+		static_assert(sizeof(UE::FName) == sizeof(std::uint64_t), "FKey starts with an 8-byte FName");
+		const auto m = Mappings();
+		auto*      imcClass = UE::StaticFindObject<UE::UClass>(nullptr, nullptr, L"/Script/EnhancedInput.InputMappingContext");
+		const auto off = imcClass ? reflect::Offset(reinterpret_cast<UE::UStruct*>(imcClass), "Mappings") : -1;
+		if (!imcClass || off < 0 || m.size <= 0 || m.key < 0) return;
+		if (a_suspend) {
+			if (!g_mouseSuspended.empty()) return;
+			static const UE::FName lmb(L"LeftMouseButton");
+			std::uint64_t          lmbName = 0;
+			std::memcpy(&lmbName, &lmb, sizeof(lmbName));
+			std::size_t n = 0;
+			for (auto* ctx : reflect::Instances(imcClass)) {   // once per open: the gameplay contexts (Attack, telekinesis push/release)
+				if (!ctx || !pe::NameOf(ctx).starts_with("IMC_Game_")) continue;
+				auto* arr = reinterpret_cast<RawArray*>(reinterpret_cast<std::uint8_t*>(ctx) + off);
+				if (!arr->data || arr->num <= 0) continue;
+				auto saved = keysuspend::Suspend(arr->data, arr->num, m.size, m.key, [&](const std::uint8_t* a_entry) {
+					std::uint64_t k = 0;
+					std::memcpy(&k, a_entry + m.key, sizeof(k));
+					return k == lmbName;
+				});
+				if (saved.empty()) continue;
+				n += saved.size();
+				g_mouseSuspended.emplace_back(reflect::Hold(ctx), std::move(saved));
+			}
+			if (n) {
+				RebuildMappings();
+				logger::info("controls: the left mouse button is off {} gameplay mapping(s) while the Ammo shortcut is open", n);
+			}
+			return;
+		}
+		if (g_mouseSuspended.empty()) return;
+		int back = 0;
+		for (auto& [handle, saved] : g_mouseSuspended) {
+			if (auto* ctx = reflect::Get(handle)) {
+				auto* arr = reinterpret_cast<RawArray*>(reinterpret_cast<std::uint8_t*>(ctx) + off);
+				back += keysuspend::Restore(arr->data, arr->num, m.size, m.key, saved);
+			}
+		}
+		g_mouseSuspended.clear();
+		RebuildMappings();   // bIgnoreAllPressedKeysUntilRelease: the click that closed the shortcut does not attack
+		logger::info("controls: the left mouse button is back on {} gameplay mapping(s)", back);
+	}
 }

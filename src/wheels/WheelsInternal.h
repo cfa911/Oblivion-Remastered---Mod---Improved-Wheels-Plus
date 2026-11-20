@@ -49,7 +49,8 @@ namespace wheels::detail
 	// what the wheel's pictures are showing now
 	enum class Shown { kGame, kMagic };
 	inline Shown g_shown = Shown::kGame;
-	inline ULONGLONG g_ammoChosenUntil = 0;   // until then a radial that opens may stay on the Ammo page although [AmmoWheel] bInWheelCycle=0 (the Ammo page's own button chose it)
+	inline ULONGLONG g_chosenUntil = 0;   // until then a radial that opens may stay on g_chosenWheel although [Wheel] sWheelCycle leaves it out (its own button chose it)
+	inline int       g_chosenWheel = -1;
 	inline ULONGLONG g_keepUntil = 0;   // until then a radial that opens keeps the wheel that is active (a wheel's own button or a keyboard key chose it)
 
 	// Armour and clothing never go on the wheel - shields do (the owner, 2026-09-30: "I don't want armor that's favorited

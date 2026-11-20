@@ -368,10 +368,10 @@ namespace pad
 			static WORD s_prevDirect = 0;
 			const auto&  st = settings::Get();
 			const WORD   wheelBtn = static_cast<WORD>(st.wheelButton ? st.wheelButton : XINPUT_GAMEPAD_DPAD_DOWN);
-			const std::array<std::pair<WORD, wheels::Wheel>, 3> direct{ {
+			// arrows have the Ammo shortcut ([AmmoWheel] uButton, Ammo.cpp), not a button that opens the main wheel on Ammo
+			const std::array<std::pair<WORD, wheels::Wheel>, 2> direct{ {
 				{ static_cast<WORD>(st.equipmentWheelButton), wheels::Wheel::kEquipment },
-				{ static_cast<WORD>(st.magicWheelButton), wheels::Wheel::kMagic },
-				{ static_cast<WORD>(st.ammoWheelButton), wheels::Wheel::kAmmo } } };
+				{ static_cast<WORD>(st.magicWheelButton), wheels::Wheel::kMagic } } };
 			WORD held = 0;
 			const bool inGame = (menus::Active() == menus::Menu::kNone && !menus::AnyOpen()) || quickkeys::RadialOpen();
 			for (const auto& [mask, wheel] : direct) {

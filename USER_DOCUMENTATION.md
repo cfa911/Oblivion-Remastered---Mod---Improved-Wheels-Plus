@@ -70,7 +70,8 @@ Default bindings:
 | Browse next entry | **Right click** |
 | Switch previous / next wheel | **Q / E** |
 | Use the selected entry in a numbered slot, without opening the wheel | **1–8** or **Numpad 1–8** |
-| Open Inventory / Magic / Ammo directly | Hold **F6 / F7 / F8** |
+| Open Inventory / Magic directly | Hold **V / B** |
+| Ammo shortcut (open, then equip) | **J** |
 | Favorite / unfavorite the highlighted menu entry | **F** |
 | Open the Inventory / Magic assign panel | **R** in that menu |
 | Assign the highlighted item or spell to a numbered slot | **1–8** or **Numpad 1–8** in its menu |
@@ -93,9 +94,9 @@ To get started: tap **R**, point with the mouse, right click until the entry you
 | Assign to the pointed slot | **A** in the assign panel |
 | Clear a pointed slot | Hold **X** for 0.6 seconds in the assign panel |
 
-Two different buttons show arrows: `[Wheel] uAmmoWheelButton` (and keyboard F8) opens the main wheel on its full Ammo page, from which LB / D-pad left-right still switch to Inventory or Magic; `[AmmoWheel] uButton` is the separate Ammo-only shortcut described next. Do not bind the same button to both. With `[AmmoWheel] bInWheelCycle=0` the main wheel's switching skips the Ammo page (Inventory <-> Magic only) and reopening never lands on it; its own buttons still open it.
+`[Wheel] sWheelCycle` lists the wheels LB / D-pad left-right / L3 / R3 (keyboard Q / E) switch between, in order (default `Inventory,Magic,Ammo`). Leave a name out to take that wheel out of the rotation; reopening never lands on it. Inventory and Magic still open from their own buttons (keyboard V / B), and arrows from the Ammo shortcut below.
 
-The dedicated Ammo shortcut is unbound by default (`[AmmoWheel] uButton=0`). Set `uButton=8` to bind **D-pad Right**. When bound, it opens the Ammo wheel; no bow is needed. By default it is a full ring of eight cells in the middle of the screen; with `uPosition=0` in `[AmmoWheel]` it is a compact half-wheel on the right edge, which becomes a full ring on its own above five arrow types. Point with the right stick or **D-pad up / down**, then press its button again or **A** to equip. **B** cancels. Its binding has its own row in the game's Controls menu.
+The Ammo shortcut is one setting with a controller button (`[AmmoWheel] uButton`, unbound by default) and a keyboard key (`[AmmoWheel] sButton`, default **J**). Set `uButton=8` to bind **D-pad Right**. When bound, it opens the Ammo wheel; no bow is needed. By default it is a full ring of eight cells in the middle of the screen; with `uPosition=0` in `[AmmoWheel]` it is a compact half-wheel on the right edge, which becomes a full ring on its own above five arrow types. Point with the right stick or **D-pad up / down**, then press its button again or **A** to equip. **B** cancels. Its binding has its own row in the game's Controls menu.
 
 ## Adding and organizing entries
 
@@ -144,7 +145,7 @@ Close the game, edit `OblivionRemastered\Binaries\Win64\OBSE\Plugins\ImprovedWhe
 | `bSlowTime` | World slowdown while a gameplay wheel is open. Default `1` (on); set `0` to turn it off. |
 | `uSlowTimePercent` | World speed with slowdown enabled: `1`–`99`, default `10` (one tenth speed). Normal speed returns when closing starts. |
 
-Keyboard controls are configurable under `[Keyboard]`, including `sEquipmentWheel`, `sMagicWheel` and `sAmmoWheel` for direct shortcuts. `NONE` disables a direct shortcut. Controller wheel and favorite bindings are configurable too; see the INI comments.
+Keyboard controls are configurable under `[Keyboard]`, including `sEquipmentWheel` and `sMagicWheel` for direct shortcuts (the Ammo shortcut's key is `[AmmoWheel] sButton`). `NONE` disables a direct shortcut. Controller wheel and favorite bindings are configurable too; see the INI comments.
 
 ### Wheel themes
 
@@ -194,7 +195,7 @@ The `.iwp` file stores wheel assignments; the matching `.spells` file stores cus
 
 **The wheel stays open after I use an item.** Set `bStayOpenAfterUse=0` if you prefer it to close after each use.
 
-**Walking switches to running.** Direct wheel shortcuts **F6 / F7 / F8** can reset **Caps Lock** walking. Opening with default **R** and using **1–8** directly preserve walking. The packaged README also notes that changing the main wheel key away from default **R** can affect walking with number-key use.
+**Walking switches to running.** Direct wheel shortcuts **V / B** can reset **Caps Lock** walking. Opening with default **R** and using **1–8** directly preserve walking. The packaged README also notes that changing the main wheel key away from default **R** can affect walking with number-key use.
 
 **Controller spell assignment does not work.** One player reported this on 1.1.7; it remains unconfirmed. Include controller model, Steam Input state and the exact assignment steps in a report.
 

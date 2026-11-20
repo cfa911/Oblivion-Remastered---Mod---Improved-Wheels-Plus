@@ -454,14 +454,19 @@ namespace keyboard
 			if ((menu == menus::Menu::kNone && !menus::AnyOpen()) || quickkeys::RadialOpen()) {
 				if (Down(k.equipmentWheel)) now = 0;
 				else if (Down(k.magicWheel)) now = 1;
-				else if (Down(k.ammoWheel)) now = 2;
 			}
 			if (now >= 0) {
-				if (now != s_prev) wheels::SetActive(now == 0 ? wheels::Wheel::kEquipment : now == 1 ? wheels::Wheel::kMagic : wheels::Wheel::kAmmo);
+				if (now != s_prev) wheels::SetActive(now == 0 ? wheels::Wheel::kEquipment : wheels::Wheel::kMagic);
 				a_pad.wButtons |= static_cast<WORD>(settings::Get().wheelButton ? settings::Get().wheelButton : XINPUT_GAMEPAD_DPAD_DOWN);
 				any = true;
 			}
 			s_prev = now;
+		}
+		{   // [AmmoWheel] sButton (J): the Ammo shortcut, exactly as its controller button [AmmoWheel] uButton - open, then equip
+			static bool s_prevAmmo = false;
+			const bool  down = k.ammoWheel && Down(k.ammoWheel) && menus::Active() == menus::Menu::kNone && !menus::AnyOpen() && !quickkeys::RadialOpen();
+			if (down && !s_prevAmmo) ammo::RequestToggle();
+			s_prevAmmo = down;
 		}
 		const auto context = menus::Active();
 		const bool radial = quickkeys::RadialOpen();
@@ -665,18 +670,15 @@ namespace keyboard
 			}
 			s_lmb = now;
 		}
-		if (ammo::Open()) {   // the ammo wheel: the mouse points (hover) and chooses (click); the arrow keys step, Enter equips, Backspace closes
+		if (ammo::Open()) {   // the ammo wheel: mouse movement aims (no cursor in gameplay, IWP-043), a click equips; the arrow keys step, Enter equips, Backspace closes
 			static bool      s_lmb = false;
 			static ULONGLONG s_aUntil = 0;
 			const bool       lmb = Down(VK_LBUTTON);
-			double           mx = 0, my = 0;
-			if (MouseUnits(mx, my)) {
-				const int entry = ammo::EntryUnderMouse(mx, my);
-				if (entry >= 0) {
-					ammo::PointAt(entry);
-					if (lmb && !s_lmb) s_aUntil = GetTickCount64() + 70;
-				}
+			if (auto* pc = ui::PlayerController()) {   // the raw mouse movement still arrives while look input is ignored
+				ui::Call delta(pc, L"GetInputMouseDelta");
+				if (delta && delta.RunGuarded()) ammo::MouseMove(delta.Get<float>("DeltaX"), delta.Get<float>("DeltaY"));
 			}
+			if (lmb && !s_lmb) s_aUntil = GetTickCount64() + 70;
 			s_lmb = lmb;
 			if (GetTickCount64() < s_aUntil) {
 				a_pad.wButtons |= XINPUT_GAMEPAD_A;

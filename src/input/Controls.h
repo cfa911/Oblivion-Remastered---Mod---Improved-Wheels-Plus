@@ -20,4 +20,5 @@
 namespace controls
 {
 	void Tick();   // every ~200 ms from the frame callback
+	void SuspendGameMouseButton(bool a_suspend);   // IWP-043: the left mouse button off the game's gameplay mappings while the Ammo shortcut is open (false puts it back)
 }

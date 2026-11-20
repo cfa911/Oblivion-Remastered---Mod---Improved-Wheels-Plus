@@ -172,6 +172,11 @@ namespace wheels
 		return out;
 	}
 
+	bool Loaded()
+	{
+		return EnsureLoaded();
+	}
+
 	std::array<std::uint32_t, 8> AmmoSlots()
 	{
 		std::array<std::uint32_t, 8> out{};
@@ -396,17 +401,31 @@ namespace wheels
 		}
 	}
 
+	std::vector<Wheel> Cycle()
+	{
+		// [Wheel] sWheelCycle: the wheels LB / D-pad left-right / L3 / R3 / Q / E rotate through, in that order (a disabled
+		// Ammo wheel is left out); never empty - nothing usable falls back to the Equipment wheel
+		const auto&        s = settings::Get();
+		std::vector<Wheel> out;
+		for (int i = 0; i < s.cycleCount && i < 3; ++i) {
+			const auto w = static_cast<Wheel>(s.cycle[i]);
+			if (w == Wheel::kAmmo && !s.ammoWheel) continue;
+			out.push_back(w);
+		}
+		if (out.empty()) out.push_back(Wheel::kEquipment);
+		return out;
+	}
+
 	void SwitchWheel(int a_dir)
 	{
-		// Equipment -> Magic -> Ammo (when enabled and bInWheelCycle) -> Equipment; left goes the other way round
-		std::vector<Wheel> order{ Wheel::kEquipment, Wheel::kMagic };
-		if (settings::Get().ammoWheel && settings::Get().ammoInCycle) order.push_back(Wheel::kAmmo);
+		// the sWheelCycle order; right goes forward, left the other way round
+		const std::vector<Wheel> order = Cycle();
 		int at = -1;
 		for (int i = 0; i < static_cast<int>(order.size()); ++i) {
 			if (order[static_cast<std::size_t>(i)] == Active()) at = i;
 		}
 		const int  n = static_cast<int>(order.size());
-		// on the Ammo page outside the cycle (its own button opened it): it sits after Magic, so right -> Equipment, left -> Magic
+		// on a wheel outside the cycle (its own button opened it): right goes to the first wheel, left to the last
 		const Wheel next = at < 0 ? (a_dir > 0 ? order.front() : order.back()) :
 			order[static_cast<std::size_t>((at + (a_dir > 0 ? 1 : n - 1)) % n)];
 		g_active.store(static_cast<int>(next));
@@ -428,9 +447,8 @@ namespace wheels
 			return;
 		}
 		g_keepUntil = GetTickCount64() + 1500;   // this press chose the wheel the radial opens on
-		if (a_wheel == Wheel::kAmmo) {
-			g_ammoChosenUntil = g_keepUntil;
-		}
+		g_chosenUntil = g_keepUntil;
+		g_chosenWheel = static_cast<int>(a_wheel);
 		if (a_wheel == Active()) {
 			return;
 		}
@@ -463,16 +481,21 @@ namespace wheels
 
 	void RadialShown()
 	{
-		if (!settings::Get().rememberWheel && GetTickCount64() >= g_keepUntil && Active() != Wheel::kEquipment) {   // a plain open starts on the Equipment wheel, whichever wheel it was left on
-			g_active.store(static_cast<int>(Wheel::kEquipment));
-			logger::info("wheels: the radial opens on the Equipment wheel (bRememberWheel=0)");
+		const std::vector<Wheel> cycle = Cycle();
+		if (!settings::Get().rememberWheel && GetTickCount64() >= g_keepUntil && Active() != cycle.front()) {   // a plain open starts on the cycle's first wheel, whichever wheel it was left on
+			g_active.store(static_cast<int>(cycle.front()));
+			logger::info("wheels: the radial opens on the {} wheel (bRememberWheel=0)", Name(cycle.front()));
 		}
-		if (Active() == Wheel::kAmmo && settings::Get().ammoWheel && !settings::Get().ammoInCycle && GetTickCount64() >= g_ammoChosenUntil) {
-			g_active.store(static_cast<int>(Wheel::kEquipment));   // bInWheelCycle=0: only the Ammo page's own button opens on it
-			logger::info("wheels: the radial opens on the Equipment wheel (Ammo is out of the cycle)");
+		bool inCycle = false;
+		for (const auto w : cycle) inCycle = inCycle || w == Active();
+		const bool chosen = GetTickCount64() < g_chosenUntil && g_chosenWheel == static_cast<int>(Active());
+		if (!inCycle && !chosen) {   // left on a wheel sWheelCycle leaves out: only its own button opens on it
+			g_active.store(static_cast<int>(cycle.front()));
+			logger::info("wheels: the radial opens on the {} wheel (the last one is not in sWheelCycle)", Name(cycle.front()));
 		}
 		g_keepUntil = 0;
-		g_ammoChosenUntil = 0;
+		g_chosenUntil = 0;
+		g_chosenWheel = -1;
 		if (Active() == Wheel::kAmmo && !(settings::Get().ammoWheel)) {
 			g_active.store(static_cast<int>(Wheel::kEquipment));
 		}

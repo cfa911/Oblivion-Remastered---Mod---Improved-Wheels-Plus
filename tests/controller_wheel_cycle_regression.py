@@ -22,12 +22,13 @@ program = r'''
 #include <Windows.h>
 #include <Xinput.h>
 #include <atomic>
+#include <cstdint>
 #include <chrono>
 #include <cstdio>
 #include <vector>
 using Clock = std::chrono::steady_clock;
 namespace settings {
-struct Values { bool ammoWheel = true; bool ammoInCycle = true; WORD wheelButton = 0; } values;
+struct Values { bool ammoWheel = true; WORD wheelButton = 0; std::uint8_t cycle[3]{0, 1, 2}; int cycleCount = 3; } values;
 Values& Get() { return values; }
 }
 namespace quickkeys {
@@ -45,7 +46,7 @@ Wheel Active() { return static_cast<Wheel>(g_active.load()); }
 const char* Name(Wheel) { return "wheel"; }
 bool EnsureLoaded() { return true; }
 void ShowMagic(bool) {}
-''' + function("src/wheels/Wheels.cpp", "void SwitchWheel(int a_dir)") + r'''
+''' + function("src/wheels/Wheels.cpp", "std::vector<Wheel> Cycle()") + "\n" + function("src/wheels/Wheels.cpp", "void SwitchWheel(int a_dir)") + r'''
 }
 namespace keyboard {
 bool MouseOwnsRadial() { return false; }

@@ -25,6 +25,8 @@ namespace ammo
 	// took this read - the rest of the gameplay rules then leave it alone.
 	bool Rewrite(XINPUT_GAMEPAD& a_pad, WORD a_raw, WORD a_pressed, WORD& a_out, bool a_gameplay, bool a_radialOpen);
 	bool Open();
+	void MouseMove(double a_dx, double a_dy);          // the mouse's movement this read (game units, y up): it aims like the right stick
+	void RequestToggle();                              // the shortcut's keyboard key: the next read acts as a press of [AmmoWheel] uButton
 	void PointAt(int a_entry);                          // the mouse is over that entry: it is the pointed one
 	int  EntryUnderMouse(double a_x, double a_y);       // the entry at that spot (viewport units), -1 for none
 }

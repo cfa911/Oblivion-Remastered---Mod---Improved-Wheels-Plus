@@ -1,5 +1,6 @@
 """IMP-IWP-005: [Wheel] sWheelCycle chooses which wheels LB / D-pad / L3 / R3 / Q / E rotate through, and in which
-order; F8 and [Wheel] uAmmoWheelButton open the Ammo-only shortcut (owner decisions, 2026-11-19).
+order; the Ammo-only shortcut is one setting, [AmmoWheel] uButton (controller) + sButton (keyboard, F8), and no
+key or button opens the main wheel on its Ammo page any more (owner decisions, 2026-11-19).
 
 Compiles the real ParseWheelCycle, Cycle, SwitchWheel, SetActive, RadialShown and DirectWheelButtons with a stubbed
 game boundary. The stubs carry every settings field old and new code use, so unchanged code compiles and fails on
@@ -111,7 +112,7 @@ void check(bool c, const char* m) { if (!c) { std::printf("FAIL: %s\n", m); ++ba
 using wheels::Wheel;
 void list(std::initializer_list<int> l) { int i = 0; for (int w : l) settings::values.cycle[i++] = static_cast<std::uint8_t>(w); settings::values.cycleCount = i; }
 void at(Wheel w) { wheels::g_active = static_cast<int>(w); }
-void plainOpen() { wheels::g_now += 5000; wheels::RadialShown(); }
+void plainOpen() { g_now += 5000; wheels::RadialShown(); }
 int main() {
     using namespace wheels;
     auto& s = settings::values;
@@ -158,7 +159,7 @@ int main() {
 }
 ''')
 
-# --- C: the Ammo wheel's own controller button opens the Ammo-only shortcut ----------------------------------------
+# --- C: the old [Wheel] uAmmoWheelButton no longer opens the main wheel on Ammo ---------------------------------------
 build_and_run("direct buttons", r'''
 #include <Windows.h>
 #include <Xinput.h>
@@ -173,7 +174,6 @@ namespace menus { enum class Menu { kNone, kInventory }; Menu Active() { return 
 namespace quickkeys { bool RadialOpen() { return false; } }
 namespace wheels { enum class Wheel { kEquipment, kMagic, kAmmo }; int setTo = -1;
     Wheel Active() { return Wheel::kEquipment; } void SetActive(Wheel w) { setTo = static_cast<int>(w); } }
-namespace ammo { int toggles = 0; void RequestToggle() { ++toggles; } }
 int g_stayUsedSlot = 0;
 ''' + function("src/input/Pad.cpp", "void DirectWheelButtons(XINPUT_GAMEPAD& a_pad)") + r'''
 int bad = 0;
@@ -182,13 +182,8 @@ WORD press(WORD b) { XINPUT_GAMEPAD p{}; p.wButtons = b; DirectWheelButtons(p); 
 int main() {
     settings::values.ammoWheelButton = XINPUT_GAMEPAD_DPAD_RIGHT;
     WORD out = press(XINPUT_GAMEPAD_DPAD_RIGHT);
-    check(ammo::toggles == 1, "uAmmoWheelButton press asks the Ammo-only shortcut once");
-    check(!(out & 256), "uAmmoWheelButton does not hold the main wheel button");
-    check(wheels::setTo != 2, "uAmmoWheelButton does not make the main wheel's Ammo page active");
-    out = press(XINPUT_GAMEPAD_DPAD_RIGHT);
-    check(ammo::toggles == 1, "holding it does not ask again");
-    press(0); press(XINPUT_GAMEPAD_DPAD_RIGHT);
-    check(ammo::toggles == 2, "a second press asks again (equip / close)");
+    check(wheels::setTo != 2, "the old uAmmoWheelButton does not make the main wheel's Ammo page active");
+    check(!(out & 256), "the old uAmmoWheelButton does not hold the main wheel button");
     press(0);
     settings::values.equipmentWheelButton = XINPUT_GAMEPAD_DPAD_UP;
     out = press(XINPUT_GAMEPAD_DPAD_UP);
@@ -209,9 +204,22 @@ if "void RequestToggle()" not in ammo_cpp:
     failures.append("Ammo.cpp: RequestToggle opens / equips like uButton")
 if 'L"sWheelCycle"' not in settings_cpp or 'L"bInWheelCycle"' in settings_cpp:
     failures.append("Settings.cpp reads [Wheel] sWheelCycle (and no longer bInWheelCycle)")
-wheel_section = ini[ini.index("\n[Wheel]\n"):ini.index("\n[Controller]\n")]
-if "\nsWheelCycle=Inventory,Magic,Ammo" not in wheel_section or "bInWheelCycle" in ini:
+if 'L"AmmoWheel", L"sButton"' not in settings_cpp:
+    failures.append("Settings.cpp reads [AmmoWheel] sButton (the shortcut's keyboard key)")
+section = lambda name, nxt: ini[ini.index(f"\n[{name}]\n"):ini.index(f"\n[{nxt}]\n")]
+if "\nsWheelCycle=Inventory,Magic,Ammo" not in section("Wheel", "Controller") or "bInWheelCycle" in ini:
     failures.append("shipped INI: sWheelCycle=Inventory,Magic,Ammo in [Wheel], no bInWheelCycle")
+if "\nuAmmoWheelButton=" in ini or "\nsAmmoWheel=" in ini:
+    failures.append("shipped INI: no uAmmoWheelButton / sAmmoWheel lines (merged into [AmmoWheel])")
+
+# IWP-042: the keyboard shortcuts sit on keys the game binds nowhere (V, B, J), never on F6 / F7 / F8 (game menu keys)
+settings_h = (root / "src/core/Settings.h").read_text(encoding="utf-8")
+if "equipmentWheel = 'V', magicWheel = 'B'" not in settings_h or "ammoWheel = 'J'" not in settings_h:
+    failures.append("Settings.h: keyboard defaults V (Inventory wheel), B (Magic wheel), J (Ammo shortcut)")
+if "\nsEquipmentWheel=V" not in ini or "\nsMagicWheel=B" not in ini or "\nsButton=J" not in section("AmmoWheel", "Keyboard"):
+    failures.append("shipped INI: sEquipmentWheel=V, sMagicWheel=B, [AmmoWheel] sButton=J")
+if 'L"sAmmoWheel"' in settings_cpp:
+    failures.append("Settings.cpp no longer reads [Keyboard] sAmmoWheel (an old F8 there opened the Options menu)")
 
 for f in failures:
     print("FAIL:", f)
