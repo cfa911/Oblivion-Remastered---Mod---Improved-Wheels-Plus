@@ -31,6 +31,29 @@ namespace settings
 			return buf;
 		}
 
+		// [Wheel] sWheelCycle: "Inventory,Magic,Ammo" -> wheel codes in order (0 Equipment, 1 Magic, 2 Ammo); "Equipment"
+		// is accepted for Inventory, case and spaces do not matter, unknown names and repeats are skipped. Returns the count.
+		int ParseWheelCycle(std::wstring_view a_text, std::uint8_t (&a_out)[3])
+		{
+			int         n = 0;
+			std::size_t from = 0;
+			while (from <= a_text.size() && n < 3) {
+				const auto comma = a_text.find(L',', from);
+				auto       part = a_text.substr(from, comma == std::wstring_view::npos ? std::wstring_view::npos : comma - from);
+				while (!part.empty() && std::iswspace(part.front())) part.remove_prefix(1);
+				while (!part.empty() && std::iswspace(part.back())) part.remove_suffix(1);
+				std::wstring low(part);
+				for (auto& c : low) c = static_cast<wchar_t>(std::towlower(c));
+				const int w = low == L"inventory" || low == L"equipment" ? 0 : low == L"magic" ? 1 : low == L"ammo" ? 2 : -1;
+				bool      repeat = false;
+				for (int i = 0; i < n; ++i) repeat = repeat || a_out[i] == w;
+				if (w >= 0 && !repeat) a_out[n++] = static_cast<std::uint8_t>(w);
+				if (comma == std::wstring_view::npos) break;
+				from = comma + 1;
+			}
+			return n;
+		}
+
 		// "F", "7", "F5", "NUMPAD3", "INSERT", "LBRACKET", "0x41"... -> a virtual-key code; "" / "NONE" / "0" = 0 (unbound)
 		int ParseKey(std::wstring a_name)
 		{
@@ -99,7 +122,20 @@ namespace settings
 			v.display.centreLineChars = ReadInt(ini, L"Display", L"uCentreLineChars", v.display.centreLineChars, 8, 80);
 			v.equipmentWheelButton = ReadInt(ini, L"Wheel", L"uEquipmentWheelButton", 0, 0, 0xFFFF);
 			v.magicWheelButton = ReadInt(ini, L"Wheel", L"uMagicWheelButton", 0, 0, 0xFFFF);
-			v.ammoWheelButton = ReadInt(ini, L"Wheel", L"uAmmoWheelButton", 0, 0, 0xFFFF);
+			if (!v.ammoButton) {   // an older INI: [Wheel] uAmmoWheelButton is the Ammo shortcut's button now
+				v.ammoButton = ReadInt(ini, L"Wheel", L"uAmmoWheelButton", 0, 0, 0xFFFF);
+			}
+			{
+				const auto   text = ReadStr(ini, L"Wheel", L"sWheelCycle", L"Inventory,Magic,Ammo");
+				std::uint8_t cycle[3]{};
+				const int    n = ParseWheelCycle(text, cycle);
+				if (n == 0) {
+					logger::warn("settings: [Wheel] sWheelCycle={} names no wheel (Inventory, Magic, Ammo) - all three rotate", std::string(text.begin(), text.end()));
+				} else {
+					std::copy_n(cycle, n, v.cycle);
+					v.cycleCount = n;
+				}
+			}
 			v.wheelButton = ReadInt(ini, L"Wheel", L"uWheelButton", v.wheelButton, 0, 0xFFFF);
 			v.favouriteButton = ReadInt(ini, L"Controller", L"uFavouriteButton", v.favouriteButton, 0, 0xFFFF);
 			logger::info("settings: the wheel button is 0x{:04X}", v.wheelButton);
@@ -119,7 +155,12 @@ namespace settings
 				key(L"sA", k.a); key(L"sX", k.x); key(L"sY", k.y);
 				key(L"sDpadUp", k.dpadUp); key(L"sDpadDown", k.dpadDown); key(L"sDpadLeft", k.dpadLeft); key(L"sDpadRight", k.dpadRight);
 				key(L"sL3", k.l3); key(L"sR3", k.r3); key(L"sStart", k.start); key(L"sSelect", k.select);
-				key(L"sEquipmentWheel", k.equipmentWheel); key(L"sMagicWheel", k.magicWheel); key(L"sAmmoWheel", k.ammoWheel);
+				key(L"sEquipmentWheel", k.equipmentWheel); key(L"sMagicWheel", k.magicWheel);   // an older INI's sAmmoWheel (F8, the game's Options key) is not read
+				if (const auto ammoKey = ReadStr(ini, L"AmmoWheel", L"sButton", L""); !ammoKey.empty()) {   // the Ammo shortcut's key
+					const int vk = ParseKey(ammoKey);
+					if (vk < 0) logger::warn("settings: [AmmoWheel] sButton={} is not a key name - the default stays", std::string(ammoKey.begin(), ammoKey.end()));
+					else k.ammoWheel = vk;
+				}
 				key(L"sStickUp", k.stickUp); key(L"sStickDown", k.stickDown); key(L"sStickLeft", k.stickLeft); key(L"sStickRight", k.stickRight);
 				const auto slots = ReadStr(ini, L"Keyboard", L"sSlotKeys", L"");   // eight names, comma separated
 				if (!slots.empty()) {

@@ -3,6 +3,27 @@
 Written as changes happen, not reconstructed afterwards (rule 61). Started 2026-09-29; the history before this file is
 in `git log`. A version number is issued by the version gate only once a build is seen working in game (rule 48).
 
+## Unreleased
+
+### Added
+- `[Wheel] sWheelCycle=Inventory,Magic,Ammo`: the wheels LB / D-pad left-right / L3 / R3 / Q / E rotate through, in that
+  order. Leave a name out to take that wheel out of the rotation; reopening never lands on it (with `bRememberWheel=0` the
+  wheel opens on the list's first wheel). Inventory and Magic still open from their own buttons / F6 / F7.
+
+### Changed
+- The Ammo shortcut is one setting: `[AmmoWheel] uButton` (controller) and the new `[AmmoWheel] sButton` (keyboard,
+  default **J**), opening the half or full Ammo wheel by `uPosition`. `[Wheel] uAmmoWheelButton` and `[Keyboard] sAmmoWheel`
+  are gone from the INI (an older INI's `uAmmoWheelButton` is still used; its `sAmmoWheel` is not).
+- Keyboard wheel keys moved off the game's own keys: Inventory wheel **V** (was F6, the game's Quest menu), Magic wheel
+  **B** (was F7, Help menu), Ammo shortcut **J** (F8 is the game's Options menu, which opened with it: IWP-042).
+  An older INI keeps its F6 / F7 until it is replaced.
+
+### Fixed
+- Ammo shortcut: RB equips the pointed arrows like A instead of reaching the game and casting the readied spell.
+- Ammo shortcut with mouse and keyboard: mouse movement points at an arrow (the game shows no cursor in gameplay), a left
+  click equips it without the character attacking, Up/Down + Enter and a second press of the key equip, it starts on the
+  worn arrows (else the first arrow), and it no longer opens empty right after loading a save.
+
 ## 2.6.1 - 2026-11-07 - Improved Wheels Plus
 
 ### Added

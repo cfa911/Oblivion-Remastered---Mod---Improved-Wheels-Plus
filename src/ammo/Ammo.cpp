@@ -1,4 +1,6 @@
 #include "ammo/Ammo.h"
+#include "ammo/AmmoInput.h"
+#include "input/Controls.h"
 #include "ammo/AmmoLayout.h"
 #include "input/RadialSelection.h"
 #include "engine/UiText.h"
@@ -123,6 +125,8 @@ namespace ammo
 		int               g_count = 0;               // how many of g_ids are entries
 		std::uint32_t     g_worn = 0;                // the arrows worn when it opened
 		int               g_drawnPointed = -2;
+		ammoinput::MouseAim g_mouseAim;           // mouse movement gathered while open (MouseMove)
+		bool              g_request = false;         // RequestToggle: a key press standing for the shortcut's button (game thread)
 		WORD              g_swallow = 0;             // buttons the wheel used: the game never sees them, until let go
 
 		double Radius() { return 317.0; }   // half of the HUD wheel's 634
@@ -463,6 +467,8 @@ namespace ammo
 
 		void Close(const char* a_why)
 		{
+			g_mouseAim.Reset();
+			controls::SuspendGameMouseButton(false);
 			slowtime::CloseRequested();
 			g_open = false;
 			g_pointed = -1;
@@ -510,11 +516,17 @@ namespace ammo
 		a_out &= ~g_swallow;
 		const auto& s = settings::Get();
 		const WORD button = static_cast<WORD>(s.ammoButton);
+		const bool request = std::exchange(g_request, false);   // the keyboard key ([AmmoWheel] sButton), this read only
 
 		if (!g_open) {
-			if (!s.ammoWheel || !button || !a_gameplay || a_radialOpen || !(a_pressed & button)) {
+			if (!s.ammoWheel || !a_gameplay || a_radialOpen || !((a_pressed & button) || request)) {
 				return false;
 			}
+			if (!wheels::Loaded()) {   // right after a load the wheel file settles first: an empty wheel would open (IWP-043)
+				logger::info("ammo: the wheels are still loading - the shortcut stays closed");
+				return false;
+			}
+			g_mouseAim.Reset();
 			const auto worn = inventory::WornAmmo();
 			// Keep true saved cell indices in full-ring mode. No arrow type is truncated.
 			const auto slots = wheels::AmmoSlots();
@@ -537,10 +549,8 @@ namespace ammo
 			Layout(g_count);
 			g_open = true;
 			LockLook(true);
-			g_pointed = -1;
-			for (int i = 0; i < kSlots && g_pointed < 0; ++i) {
-				g_pointed = g_ids[i] && g_ids[i] == worn ? i : -1;   // starts on the arrows worn now
-			}
+			if (s.keyboard.enabled) controls::SuspendGameMouseButton(true);   // the click that chooses must not attack (IWP-043)
+			g_pointed = ammoinput::StartPointed(g_ids.data(), kSlots, worn);   // starts on the arrows worn now
 			g_pointedByStick = false;
 			g_resting = true;
 			g_drawnPointed = -2;
@@ -557,7 +567,7 @@ namespace ammo
 			return false;
 		}
 		// open: the D-pad, A, B and the right stick are the wheel's
-		a_out &= ~(kDpad | XINPUT_GAMEPAD_A | XINPUT_GAMEPAD_B);
+		a_out &= static_cast<WORD>(~ammoinput::TakenWhileOpen());
 		const double x = a_pad.sThumbRX / 32767.0, y = a_pad.sThumbRY / 32767.0;
 		const double m = std::hypot(x, y);
 		a_pad.sThumbRX = 0;
@@ -585,11 +595,12 @@ namespace ammo
 			g_pointed = Step(g_pointed, +1);
 			g_pointedByStick = false;
 		}
-		if (a_pressed & XINPUT_GAMEPAD_B) {
+		const auto action = ammoinput::ActionFor(a_pressed, button, request);
+		if (action == ammoinput::Action::kCancel) {
 			g_swallow |= XINPUT_GAMEPAD_B;
 			Close("B - nothing equipped");
-		} else if (a_pressed & (button | XINPUT_GAMEPAD_A)) {
-			g_swallow |= a_pressed & (button | XINPUT_GAMEPAD_A);
+		} else if (action == ammoinput::Action::kEquip) {
+			g_swallow |= a_pressed & (button | ammoinput::kA | ammoinput::kRB);
 			if (g_pointed >= 0 && g_ids[g_pointed]) {
 				inventory::EquipAmmo(g_ids[g_pointed]);
 				Close("the pointed arrows go on");
@@ -603,6 +614,18 @@ namespace ammo
 	}
 
 	bool Open() { return g_open; }
+
+	void RequestToggle() { g_request = true; }
+
+	void MouseMove(double a_dx, double a_dy)
+	{
+		double x = 0, y = 0;
+		if (!g_open || !g_mouseAim.Feed(a_dx, a_dy, x, y)) return;
+		if (const int aim = Aim(x, y); aim >= 0 && aim != g_pointed) {
+			g_pointed = aim;
+			g_pointedByStick = true;
+		}
+	}
 
 
 	void PointAt(int a_entry)

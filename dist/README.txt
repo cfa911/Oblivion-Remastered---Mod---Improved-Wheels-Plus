@@ -25,7 +25,7 @@ ADDED IN THIS BUILD
   * KEYBOARD SUPPORT, the main addition: the whole wheel menu works from the keyboard, with or without a controller. Every key is
     configurable in the [Keyboard] section of ImprovedWheelMenu.ini (and so is every other setting): each key presses the controller
     control it is named for, so every rule below works from the keyboard. Defaults: R toggles the gameplay wheel; Q / E switch wheels;
-    Hold F6 / F7 / F8 to open Equipment / Magic / Ammo directly.
+    Hold V / B to open Equipment / Magic directly; J opens the Ammo shortcut.
     Z / C step entries; right click advances an entry; backslash uses; F favourites;
     native menu R opens assignment; hold X clears a slot. The number keys 1-8 and Numpad 1-8
     are slot keys (in gameplay they directly use the selected entry without opening the wheel; in the Inventory / Magic menu they assign the highlighted item or spell to it).
@@ -35,8 +35,8 @@ ADDED IN THIS BUILD
   * Slot counters under every slot of the Equipment and Magic wheels ("2/3": the entry shown out of the entries the slot holds, "0/0" when empty; bShowSlotCapacity=1 for "2/5"), and the wheel's centre names the pointed spell or item (also names you typed).
   * A repair hammer on the Equipment wheel opens the Inventory and then the repair menu (the game needs the Inventory open for it); Esc leaves the repair menu, a second Esc the Inventory.
   * The whole wheel from the keyboard: every key of the [Keyboard] section is rebindable; number keys 1-8 and Numpad 1-8 are slot keys.
-  * Buttons that open a wheel directly (uEquipmentWheelButton, uMagicWheelButton, uAmmoWheelButton), the radial's animation speed
-    (uAnimSpeedPercent), and where the ammo wheel opens (uPosition).
+  * Buttons that open a wheel directly (uEquipmentWheelButton, uMagicWheelButton), which wheels the main wheel rotates through
+    (sWheelCycle), the radial's animation speed (uAnimSpeedPercent), and the Ammo shortcut (uButton, sButton = J, uPosition).
   * Wheels are kept per character, and anything a loaded save does not have (a spell or item that character does not own there, for example in an earlier save) is
     hidden from the wheel, not erased, so nothing tries to use a form that is not there and it returns in a save that has it.
   * Favourites can be dropped and sold (bBlockFavouriteDropSell, off); they leave the wheel once none is carried. 1 restores the original mod's block.
@@ -142,6 +142,6 @@ LICENCE
 
 MINOR ISSUE
 -----------
-F6/F7/F8 direct-wheel opening can reset Caps Lock walking to running. R and 1-8 quick use preserve walking.
+V/B direct-wheel opening can reset Caps Lock walking to running. R and 1-8 quick use preserve walking.
 
 In Equipment and Magic assignment panels, right-click/C/RT advance the pointed slot entry; Z/LT go backward. Triggers do not change tabs while the panel is open. Esc is no longer a mod-provided wheel or assignment-panel cancel binding.

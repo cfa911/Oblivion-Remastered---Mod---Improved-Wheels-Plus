@@ -70,6 +70,7 @@ namespace wheels
 	void Tick(bool a_assignHeld);              // every controller read: settles a pending Equipment assign
 	void CycleEntry(Wheel a_wheel, int a_slot, int a_dir);   // step the active entry of a slot (D-pad L/R in a panel, LT/RT on the radial)
 	void ClearSlot(Wheel a_wheel, int a_slot);   // X held on a pointed slot of a panel: every entry of the slot comes off the wheel
+	bool Loaded();                     // the character's wheel file is read (false while it settles after a load)
 	void SwitchWheel(int a_dir);               // D-pad L/R on the HUD radial
 	void KeepActive();                 // the radial that opens in the next moment keeps the wheel that is active (the keyboard's own presses)
 	void SetActive(Wheel a_wheel);             // a wheel's own button or key: the radial opens (or shows) on that wheel

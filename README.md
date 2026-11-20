@@ -62,7 +62,7 @@ Requires the **Steam version** of Oblivion Remastered, [OBSE64](https://www.nexu
 | Assign highlighted menu entry to pointed slot | Left click | **A** |
 | Clear pointed slot in assignment panel | Hold **X** for 0.6 seconds | Hold **X** for 0.6 seconds |
 
-Hold **F6 / F7 / F8** to open Inventory / Magic / Ammo directly. **1–8 / Numpad 1–8** use slots directly in gameplay or assign highlighted entries in menus. While the assignment panel is open, **Z / C**, **LT / RT**, or right click browse entries within the pointed slot.
+Hold **V / B** to open Inventory / Magic directly; **J** opens the Ammo shortcut. **1–8 / Numpad 1–8** use slots directly in gameplay or assign highlighted entries in menus. While the assignment panel is open, **Z / C**, **LT / RT**, or right click browse entries within the pointed slot.
 
 The dedicated controller Ammo shortcut is unbound by default (`[AmmoWheel] uButton=0`); Ammo remains available by switching wheels. Set `uButton=8` for D-pad Right. Existing INI bindings are retained.
 
@@ -79,7 +79,7 @@ Close the game before editing `OblivionRemastered\Binaries\Win64\OBSE\Plugins\Im
 
 **Works together with Menus Revamped.** Its search-bar typing, mouse interaction and controller keyboard take priority over wheel shortcuts. Neither mod requires the other. Use the separate **2.4.0 legacy download** if you still use the standalone SearchLight or Smooth Menus plugins; do not run those alongside Menus Revamped.
 
-Known limitation: direct **F6 / F7 / F8** wheel shortcuts can reset Caps Lock walking to running. The default **R** wheel and direct **1–8** activation preserve walking.
+Known limitation: direct **V / B** wheel shortcuts can reset Caps Lock walking to running. The default **R** wheel and direct **1–8** activation preserve walking.
 
 ## Build and tests
 
