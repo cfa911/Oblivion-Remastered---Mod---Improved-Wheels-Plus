@@ -188,13 +188,21 @@ namespace rows
 			return icon ? *icon : nullptr;
 		}
 
-		// what every live row shows now goes into the icon caches
-		void Harvest()
+		// what every live row shows now goes into the icon caches. The rows fire events every frame while a menu is up and each
+		// marks the caches dirty, so the whole walk runs at most every 100 ms (a_force: now) - it ran on nearly every read,
+		// ~19 ms a second in the assign panels (timing run 2026-11-20). A lookup that misses forces it (ItemIcon, SpellIcon).
+		void Harvest(bool a_force = false)
 		{
 			ObserveContext();
 			if (!g_dirty) {
 				return;
 			}
+			static ULONGLONG s_next = 0;
+			const ULONGLONG  now = GetTickCount64();
+			if (!a_force && now < s_next) {
+				return;
+			}
+			s_next = now + 100;
 			g_dirty = false;
 			for (auto it = g_inventory.seen.begin(); it != g_inventory.seen.end();) {
 				auto* row = reflect::Get(it->first, it->second);
@@ -550,7 +558,7 @@ namespace rows
 
 	std::uint32_t HighlightedItem()
 	{
-		Harvest();
+		Harvest();   // the highlighted row is read directly; the other rows' data may be up to 100 ms old (asked every read by AssignmentWheel)
 		auto* row = reflect::Get(g_inventory.highlighted);   // gone after a drop or a close: no item
 		using Key = std::pair<UE::UObject*, std::uint64_t>;
 		static thread_local readmemo::Memo<Key, std::uint32_t> memo;
@@ -571,7 +579,7 @@ namespace rows
 
 	std::uint32_t HighlightedSpell()
 	{
-		Harvest();
+		Harvest();   // the highlighted row is read directly; the other rows' data may be up to 100 ms old (asked every read by AssignmentWheel)
 		auto*             row = reflect::Get(g_magic.highlighted);
 		const std::string name = NameOfRow(g_magic, row);
 		const std::string key = KeyOfRow(g_magic, row);
@@ -632,6 +640,12 @@ namespace rows
 			if (auto* icon = reflect::Get(it->second)) return icon;
 		}
 		if (!a_formID || g_iconFailed.contains(a_formID)) return nullptr;
+		if (g_dirty) {   // a row may show it since the last walk: walk now rather than load the form's icon
+			Harvest(true);
+			if (const auto it = g_itemIcons.find(a_formID); it != g_itemIcons.end()) {
+				if (auto* icon = reflect::Get(it->second)) return icon;
+			}
+		}
 		const auto* tex = IconOf(RE::TESForm::LookupByID(a_formID));
 		const char* icon = tex ? tex->textureName.c_str() : nullptr;
 		const auto  path = icon && *icon ? IconAssetPath(icon) : std::string();
@@ -755,6 +769,12 @@ namespace rows
 			if (auto* icon = reflect::Get(it->second)) return icon;
 		}
 		if (!a_formID || g_spellIconFailed.contains(a_formID)) return nullptr;
+		if (g_dirty) {   // a row may show it since the last walk: walk now rather than load the effect's icon
+			Harvest(true);
+			if (const auto it = g_spellIcons.find(a_formID); it != g_spellIcons.end()) {
+				if (auto* icon = reflect::Get(it->second)) return icon;
+			}
+		}
 		auto* spell = RE::TESForm::LookupByID<RE::SpellItem>(a_formID);
 		auto* effect = spell ? FirstEffectRaw(spell) : nullptr;
 		static bool offsetLogged = false;
