@@ -516,14 +516,44 @@ namespace quickkeys
 
 	bool GameMessageUp(bool a_immediate)
 	{
+		// The message widgets are learned from their own ProcessEvent calls (pe::Watch on the class), so the overlay's
+		// asks (~80 a second while a wheel or the assign panel is up, a_immediate false) need no object-array scan; the old
+		// throttled discovery scanned ~10 times a second (performance review 2026-11-19). An input press (a_immediate)
+		// still scans when no known dialog is up: a dialog the watch never saw made the poison question repeat (owner run
+		// 2026-11-20), and a press must never be taken as a wheel choice while a dialog is up (case study 17).
 		static UE::UClass*     s_cls = nullptr;
-		static reflect::Handle s_last;   // the instance seen up last time: asked first
+		static bool            s_watchTried = false;
+		static bool            s_watched = false;
+		static std::mutex      s_lock;    // s_known, from the watch and from here; never held across a ProcessEvent call
 		static std::vector<reflect::Handle> s_known;
-		static messagediscovery::Gate s_discovery;
+		static reflect::Handle s_last;    // the instance seen up last time: asked first
+		static messagediscovery::Gate s_discovery;   // only when the watch could not go in
 		if (!s_cls) {
 			s_cls = UE::StaticFindObject<UE::UClass>(nullptr, nullptr, L"/Game/UI/Modern/ModalLayer/Messages/WBP_ModernMenu_Message.WBP_ModernMenu_Message_C");
 			if (!s_cls) return false;   // no message shown yet this session
-			logger::info("quick keys: drawing message discovery is limited to100ms; input discovery stays immediate");
+		}
+		// pe::Watch handler (game thread, before the function): any call on a message widget makes it known
+		constexpr pe::Handler learn = [](UE::UObject* a_obj, UE::UFunction* a_fn, void*) {
+			if (!a_obj) return;
+			std::scoped_lock l(s_lock);
+			for (auto& h : s_known) {
+				if (h.index == a_obj->internalIndex) {
+					if (h.ptr != a_obj) h = reflect::Hold(a_obj);   // the slot was reused by a new message
+					return;
+				}
+			}
+			std::erase_if(s_known, [](const reflect::Handle& a_h) { return !reflect::Get(a_h); });
+			s_known.push_back(reflect::Hold(a_obj));
+		};
+		if (!s_watchTried) {
+			s_watchTried = true;
+			s_watched = pe::Watch(s_cls, learn);
+			if (s_watched) {
+				for (auto* w : reflect::Instances(s_cls)) learn(w, nullptr, nullptr);
+				logger::info("quick keys: game messages are tracked through their own events (no object-array scans)");
+			} else {
+				logger::warn("quick keys: the message widget could not be watched - message discovery is limited to 100 ms");
+			}
 		}
 		const auto up = [](UE::UObject* a_w) {
 			if (!a_w) return false;
@@ -533,22 +563,30 @@ namespace quickkeys
 			return vis && vis.Run() && vis.Get<bool>("ReturnValue");
 		};
 		if (up(reflect::Get(s_last))) return true;
-		for (const auto& handle : s_known) {
+		std::vector<reflect::Handle> known;
+		{
+			std::scoped_lock l(s_lock);
+			known = s_known;
+		}
+		for (const auto& handle : known) {
 			if (auto* widget = reflect::Get(handle); widget && up(widget)) {
 				s_last = handle;
 				return true;
 			}
 		}
-		if (!s_discovery.Due(GetTickCount64(), a_immediate)) return false;
-		s_known.clear();
+		if (s_watched ? !a_immediate : !s_discovery.Due(GetTickCount64(), a_immediate)) return false;
+		std::vector<reflect::Handle> found;
+		bool any = false;
 		for (auto* w : reflect::Instances(s_cls)) {
-			s_known.push_back(reflect::Hold(w));
-			if (up(w)) {
+			found.push_back(reflect::Hold(w));
+			if (!any && up(w)) {
 				s_last = reflect::Hold(w);
-				return true;
+				any = true;
 			}
 		}
-		return false;
+		std::scoped_lock l(s_lock);
+		s_known = std::move(found);
+		return any;
 	}
 
 	bool PanelOpen()
